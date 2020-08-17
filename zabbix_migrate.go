@@ -7,6 +7,21 @@ import (
     log "github.com/sirupsen/logrus"
 )
 
+var (
+    HistoryTables = []string{
+        "history",
+        "history_log",
+        "history_str",
+        "history_text",
+        "history_uint",
+    }
+    TrendsTables = []string{
+        "trends",
+        "trends_uint",
+    }
+
+)
+
 func CreateNewHostGroup(aZAPI, bZAPI *ZabbixAPI) error {
     log.Debug("start create new host group on new zabbix")
 
@@ -321,6 +336,48 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
     return nil
 }
 
-func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB) error {
+func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int) error {
+    log.Debug("start sync old history to new zabbix")
+    hMapList, err := aZDB.GetHostMapList(hostgroup, hostIdBegin)
+    if err != nil {
+        return err
+    }
+    for _, hMap := range hMapList {
+        log.Error(hMap)
+        for _, hTable := range HistoryTables {
+            log.Error(hTable)
+            for hostid, host := range hMap {
+                log.Error(hostid)
+                log.Error(host)
+                err := aZDB.SyncHistoryToOne(bZDB, hTable, hostid, host)
+                if err != nil {
+                    return err
+                }
+                log.Debug(fmt.Sprintf("done sync history table [%s]: host [%s] hostid [%d]", hTable, host, hostid))
+            }
+        }
+    }
+
+    log.Debug("finish sync old history to new zabbix")
+    return nil
+}
+
+func SyncTrends(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int) error {
+    hMapList, err := aZDB.GetHostMapList(hostgroup, hostIdBegin)
+    if err != nil {
+        return err
+    }
+    for _, hMap := range hMapList {
+        log.Error(hMap)
+        for _, sTable := range TrendsTables {
+            for hostid, host := range hMap {
+                err := aZDB.SyncTrendsToOne(bZDB, sTable, hostid, host)
+                if err != nil {
+                    return err
+                }
+                log.Debug(fmt.Sprintf("done sync trends table [%s]: host [%s] hostid [%d]", sTable, host, hostid))
+            }
+        }
+    }
     return nil
 }

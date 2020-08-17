@@ -108,6 +108,29 @@ func TestSyncHistoryToOne(t *testing.T) {
     zdbA, _ := GetDBConnectA()
     zbxB, _ := GetDBConnectB()
 
-    err := zdbA.SyncHistoryToOne(zbxB, "history", 10263, "192.168.52.31")
+    err := zdbA.SyncHistoryToOne(zbxB, "history_text", 10266, "192.168.52.61_midware")
+    log.Println(err)
+}
+
+func TestSyncTrendsToOne(t *testing.T) {
+    zdbA, _ := GetDBConnectA()
+    zbxB, _ := GetDBConnectB()
+
+    err := zdbA.SyncTrendsToOne(zbxB, "trends", 10266, "192.168.52.61_midware")
+    log.Println(err)
+}
+
+func TestSyncHistory(t *testing.T) {
+    zdbA, _ := GetDBConnectA()
+    zbxB, _ := GetDBConnectB()
+
+    SyncHistory(zdbA, zbxB, "Linux servers", 0)
+}
+
+func TestSyncTrends(t *testing.T) {
+    zdbA, _ := GetDBConnectA()
+    zbxB, _ := GetDBConnectB()
+
+    err := SyncTrends(zdbA, zbxB, "Linux servers", 0)
     log.Println(err)
 }
