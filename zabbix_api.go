@@ -54,6 +54,7 @@ type ZabbixAPIError struct {
 type ZHostGroup map[string]interface{}
 type ZHost map[string]interface{}
 type ZTemplate map[string]interface{}
+type ZValuemap map[string]interface{}
 
 func NewZabbixAPI(url, user, password string) (*ZabbixAPI, error) {
     return &ZabbixAPI{
@@ -210,5 +211,20 @@ func (api *ZabbixAPI) Configuration(method string, params interface{}) (interfac
     }
 
     res := rsp.Result
+    return res, nil
+}
+
+func (api *ZabbixAPI) Valuemap(method string, params interface{}) ([]ZValuemap, error) {
+    rsp, err := api.Request("valuemap."+method, params)
+    if err != nil {
+        return nil, err
+    }
+    if rsp.Error.Code != 0 {
+        return nil, errors.New(rsp.Error.Data)
+    }
+
+    res, err := json.Marshal(rsp.Result)
+    var ret []ZValuemap
+    err = json.Unmarshal(res, &ret)
     return res, nil
 }

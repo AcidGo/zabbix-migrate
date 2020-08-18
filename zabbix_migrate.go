@@ -4,6 +4,7 @@ import (
     "errors"
     "fmt"
     "time"
+    "reflect"
     log "github.com/sirupsen/logrus"
 )
 
@@ -19,8 +20,24 @@ var (
         "trends",
         "trends_uint",
     }
-
 )
+
+var (
+    diffIsQuiet = false
+)
+
+func CopyMap(m map[interface{}]) map[interface{}]interface{} {
+    cp := make(map[interface{}]interface{})
+    for k, v := range m {
+        vm, ok := v.(map[interface{}]interface{})
+        if ok {
+            cp[k] = CopyMap(vm)
+        } else {
+            cp[k] = v
+        }
+    }
+    return cp
+}
 
 func CreateNewHostGroup(aZAPI, bZAPI *ZabbixAPI) error {
     log.Debug("start create new host group on new zabbix")
@@ -381,3 +398,21 @@ func SyncTrends(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin in
     }
     return nil
 }
+
+// func CheckValuemap(aZAPI , bZAPI *ZabbixAPI) (bool, error) {
+//     aParams := make(map[string]interface{}, 0)
+//     aParams["output"] = "extend"
+//     aValuemapList, err := aZAPI.Valuemap("get", aParams)
+//     if err != nil {
+//         return err
+//     }
+
+//     bParams := make(map[string]interface{}, 0)
+//     bParams["output"] = "extend"
+//     bValuemapList, err := bZAPI.Valuemap("get", bParams)
+//     if err != nil {
+//         return err
+//     }
+
+//     return 
+// }
