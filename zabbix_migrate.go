@@ -1,6 +1,7 @@
 package main
 
 import (
+    "encoding/json"
     "errors"
     "fmt"
     "time"
@@ -22,21 +23,67 @@ var (
     }
 )
 
-var (
-    diffIsQuiet = false
-)
 
-func CopyMap(m map[interface{}]) map[interface{}]interface{} {
-    cp := make(map[interface{}]interface{})
-    for k, v := range m {
-        vm, ok := v.(map[interface{}]interface{})
-        if ok {
-            cp[k] = CopyMap(vm)
-        } else {
-            cp[k] = v
+func DiffUnitList(aUnitList, bUnitList []ZUnitMap, hasEcho bool) (bool, error) {
+    var isDiff bool
+    aDiffUnit := make([]map[string]interface{}, 0)
+    bDiffUnit := make([]map[string]interface{}, 0)
+    _bDiffUnit := make([]map[string]interface{}, 0)
+    for _, v := range bUnitList {
+        _bDiffUnit = append(_bDiffUnit, v)
+    }
+
+    for _, aV := range aUnitList {
+        var isExist = false
+        for bI, bV := range bUnitList {
+            if reflect.DeepEqual(aV, bV) {
+                _bDiffUnit[bI] = nil
+                isExist = true
+            }
+        }
+        if !isExist {
+            aDiffUnit = append(aDiffUnit, aV)
         }
     }
-    return cp
+
+    for _, v := range _bDiffUnit {
+        if v == nil {
+            continue
+        }
+        bDiffUnit = append(bDiffUnit, v)
+    }
+
+    if len(aDiffUnit) == 0 && len(bDiffUnit) == 0 {
+        isDiff = false
+    } else {
+        isDiff = true
+    }
+
+    if !hasEcho {
+        return isDiff, nil
+    }
+
+    fmt.Println("===[start: detail for a]")
+    for _, v := range aDiffUnit {
+        jsonStr, err := json.Marshal(v)
+        if err != nil {
+            return false, err
+        }
+        fmt.Printf("- %s\n", jsonStr)
+    }
+    fmt.Println("===[end: detail for a]")
+
+    fmt.Println("===[start: detail for b]")
+    for _, v := range bDiffUnit {
+        jsonStr, err := json.Marshal(v)
+        if err != nil {
+            return false, err
+        }
+        fmt.Printf("+ %s\n", jsonStr)
+    }
+    fmt.Println("===[end: detail for b]")
+
+    return isDiff, nil
 }
 
 func CreateNewHostGroup(aZAPI, bZAPI *ZabbixAPI) error {
@@ -399,20 +446,140 @@ func SyncTrends(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin in
     return nil
 }
 
-// func CheckValuemap(aZAPI , bZAPI *ZabbixAPI) (bool, error) {
-//     aParams := make(map[string]interface{}, 0)
-//     aParams["output"] = "extend"
-//     aValuemapList, err := aZAPI.Valuemap("get", aParams)
-//     if err != nil {
-//         return err
-//     }
+func CheckHostGroup(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
+    aParams := make(map[string]interface{}, 0)
+    aFilter := make(map[string]interface{}, 0)
+    aParams["output"] = "extend"
+    aParams["filter"] = aFilter
+    aZHostGroupList, err := aZAPI.HostGroup("get", aParams)
+    if err != nil {
+        return false, err
+    }
 
-//     bParams := make(map[string]interface{}, 0)
-//     bParams["output"] = "extend"
-//     bValuemapList, err := bZAPI.Valuemap("get", bParams)
-//     if err != nil {
-//         return err
-//     }
+    bParams := make(map[string]interface{}, 0)
+    bFilter := make(map[string]interface{}, 0)
+    bParams["output"] = "extend"
+    bParams["filter"] = bFilter
+    bZHostGroupList, err := bZAPI.HostGroup("get", bParams)
+    if err != nil {
+        return false, err
+    }
 
-//     return 
+    isDiff, err := DiffUnitList(aZHostGroupList, bZHostGroupList, true)
+    if err != nil {
+        return false, err
+    }
+
+    return isDiff, nil
+}
+
+func CheckHost(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, error) {
+    aParams := make(map[string]interface{}, 0)
+    aFilter := make(map[string]interface{}, 0)
+    aParams["output"] = []string{"host"}
+    aParams["selectGroups"] = hostgroup
+    aParams["filter"] = aFilter
+    aZHostList, err := aZAPI.Host("get", aParams)
+    if err != nil {
+        return false, err
+    }
+
+    bParams := make(map[string]interface{}, 0)
+    bFilter := make(map[string]interface{}, 0)
+    bParams["output"] = []string{"host"}
+    bParams["selectGroups"] = hostgroup
+    bParams["filter"] = bFilter
+    bZHostList, err := bZAPI.Host("get", bParams)
+    if err != nil {
+        return false, err
+    }
+
+    isDiff, err := DiffUnitList(aZHostList, bZHostList, true)
+    if err != nil {
+        return false, err
+    }
+
+    return isDiff, nil
+}
+
+func CheckItem(aZAPI, bZAPI *ZabbixAPI, host string) (bool, error) {
+    aParams := make(map[string]interface{}, 0)
+    aParams["output"] = "key_"
+    aParams["host"] = host
+    aParams["sortfield"] = "key_"
+    aZItemList, err := aZAPI.Item("get", aParams)
+    if err != nil {
+        return false, err
+    }
+
+    bParams := make(map[string]interface{}, 0)
+    bParams["output"] = "key_"
+    bParams["host"] = host
+    bParams["sortfield"] = "key_"
+    bZItemList, err := bZAPI.Item("get", bParams)
+    if err != nil {
+        return false, err
+    }
+
+    isDiff, err := DiffUnitList(aZItemList, bZItemList, true)
+    if err != nil {
+        return false, err
+    }
+
+    return isDiff, nil
+}
+
+// func CheckItemAll(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
 // }
+
+func CheckTriggerNum(aZAPI, bZAPI *ZabbixAPI, host string) (bool, error) {
+    aParams := make(map[string]interface{}, 0)
+    aParams["output"] = "triggerid"
+    aParams["host"] = host
+    aParams["sortfield"] = "triggerid"
+    aZTriggerList, err := aZAPI.Item("get", aParams)
+    if err != nil {
+        return false, err
+    }
+
+    bParams := make(map[string]interface{}, 0)
+    bParams["output"] = "triggerid"
+    bParams["host"] = host
+    bParams["sortfield"] = "triggerid"
+    bZTriggerList, err := bZAPI.Item("get", bParams)
+    if err != nil {
+        return false, err
+    }
+
+    return len(aZTriggerList) == len(bZTriggerList), nil
+}
+
+// func CheckTriggerNumAll(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
+// }
+
+func CheckValuemap(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
+    aParams := make(map[string]interface{}, 0)
+    aParams["output"] = "extend"
+    aValuemapList, err := aZAPI.Valuemap("get", aParams)
+    if err != nil {
+        return false, err
+    }
+
+    bParams := make(map[string]interface{}, 0)
+    bParams["output"] = "extend"
+    bValuemapList, err := bZAPI.Valuemap("get", bParams)
+    if err != nil {
+        return false, err
+    }
+
+    isDiff, err := DiffUnitList(aValuemapList, bValuemapList, true)
+    if err != nil {
+        return false, err
+    }
+
+    return isDiff, nil
+}
+
+func CheckMap(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
+    return false, errors.New("now support for map check, please manually")
+}

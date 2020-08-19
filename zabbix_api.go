@@ -51,10 +51,11 @@ type ZabbixAPIError struct {
     Data    string  `json:"data"`
 }
 
-type ZHostGroup map[string]interface{}
-type ZHost map[string]interface{}
-type ZTemplate map[string]interface{}
-type ZValuemap map[string]interface{}
+type ZUnitMap map[string]interface{}
+// type ZHostGroup map[string]interface{}
+// type ZHost map[string]interface{}
+// type ZTemplate map[string]interface{}
+// type ZValuemap map[string]interface{}
 
 func NewZabbixAPI(url, user, password string) (*ZabbixAPI, error) {
     return &ZabbixAPI{
@@ -156,7 +157,7 @@ func (api *ZabbixAPI) Logout() (bool, error) {
     return true, nil
 }
 
-func (api *ZabbixAPI) Host(method string, params interface{}) ([]ZHost, error) {
+func (api *ZabbixAPI) Host(method string, params interface{}) ([]ZUnitMap, error) {
     rsp, err := api.Request("host."+method, params)
     if err != nil {
         return nil, err
@@ -166,12 +167,12 @@ func (api *ZabbixAPI) Host(method string, params interface{}) ([]ZHost, error) {
     }
 
     res, err := json.Marshal(rsp.Result)
-    var ret []ZHost
+    var ret []ZUnitMap
     err = json.Unmarshal(res, &ret)
     return ret, nil
 }
 
-func (api *ZabbixAPI) HostGroup(method string, params interface{}) ([]ZHostGroup, error) {
+func (api *ZabbixAPI) HostGroup(method string, params interface{}) ([]ZUnitMap, error) {
     rsp, err := api.Request("hostgroup."+method, params)
     if err != nil {
         return nil, err
@@ -181,12 +182,12 @@ func (api *ZabbixAPI) HostGroup(method string, params interface{}) ([]ZHostGroup
     }
 
     res, err := json.Marshal(rsp.Result)
-    var ret []ZHostGroup
+    var ret []ZUnitMap
     err = json.Unmarshal(res, &ret)
     return ret, nil
 }
 
-func (api *ZabbixAPI) Template(method string, params interface{}) ([]ZTemplate, error) {
+func (api *ZabbixAPI) Template(method string, params interface{}) ([]ZUnitMap, error) {
     rsp, err := api.Request("template."+method, params)
     if err != nil {
         return nil, err
@@ -196,7 +197,7 @@ func (api *ZabbixAPI) Template(method string, params interface{}) ([]ZTemplate, 
     }
 
     res, err := json.Marshal(rsp.Result)
-    var ret []ZTemplate
+    var ret []ZUnitMap
     err = json.Unmarshal(res, &ret)
     return ret, nil
 }
@@ -214,7 +215,7 @@ func (api *ZabbixAPI) Configuration(method string, params interface{}) (interfac
     return res, nil
 }
 
-func (api *ZabbixAPI) Valuemap(method string, params interface{}) ([]ZValuemap, error) {
+func (api *ZabbixAPI) Valuemap(method string, params interface{}) ([]ZUnitMap, error) {
     rsp, err := api.Request("valuemap."+method, params)
     if err != nil {
         return nil, err
@@ -224,7 +225,49 @@ func (api *ZabbixAPI) Valuemap(method string, params interface{}) ([]ZValuemap, 
     }
 
     res, err := json.Marshal(rsp.Result)
-    var ret []ZValuemap
+    var ret []ZUnitMap
     err = json.Unmarshal(res, &ret)
-    return res, nil
+    if err != nil {
+        return nil, err
+    }
+
+    return ret, nil
+}
+
+func (api *ZabbixAPI) Item(method string, params interface{}) ([]ZUnitMap, error) {
+    rsp, err := api.Request("item."+method, params)
+    if err != nil {
+        return nil, err
+    }
+    if rsp.Error.Code != 0 {
+        return nil, errors.New(rsp.Error.Data)
+    }
+
+    res, err := json.Marshal(rsp.Result)
+    var ret []ZUnitMap
+    err = json.Unmarshal(res, &ret)
+    if err != nil {
+        return nil, err
+    }
+
+    return ret, nil
+}
+
+func (api *ZabbixAPI) Trigger(method string, params interface{}) ([]ZUnitMap, error) {
+    rsp, err := api.Request("trigger."+method, params)
+    if err != nil {
+        return nil, err
+    }
+    if rsp.Error.Code != 0 {
+        return nil, errors.New(rsp.Error.Data)
+    }
+
+    res, err := json.Marshal(rsp.Result)
+    var ret []ZUnitMap
+    err = json.Unmarshal(res, &ret)
+    if err != nil {
+        return nil, err
+    }
+
+    return ret, nil
 }

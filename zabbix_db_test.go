@@ -3,6 +3,7 @@ package main
 import (
     "log"
     "testing"
+    // "fmt"
 )
 
 func GetDBConnectA() (*ZabbixDB, error) {
@@ -132,5 +133,31 @@ func TestSyncTrends(t *testing.T) {
     zbxB, _ := GetDBConnectB()
 
     err := SyncTrends(zdbA, zbxB, "Linux servers", 0)
+    log.Println(err)
+}
+
+func TestDiffUnitList(t *testing.T) {
+    m := []ZUnitMap {
+        map[string]interface{} {
+            "a": 1,
+            "b": 2,
+        },
+        map[string]interface{} {
+            "c": 1,
+            "d": 2,
+        },
+    }
+    n := []ZUnitMap {
+        map[string]interface{} {
+            "a": 1,
+            "b": 2,
+        },
+        map[string]interface{} {
+            "c": 1,
+            "d": 3,
+        },
+    }
+    res, err := DiffUnitList(m, n, true)
+    log.Println(res)
     log.Println(err)
 }
