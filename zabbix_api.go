@@ -68,7 +68,6 @@ func NewZabbixAPI(url, user, password string) (*ZabbixAPI, error) {
     }, nil
 }
 
-
 func (api *ZabbixAPI) Request(method string, params interface{}) (JsonRPCResponse, error) {
     id := api.id
     api.id = api.id + 1

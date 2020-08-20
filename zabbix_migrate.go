@@ -25,7 +25,7 @@ var (
 
 
 func DiffUnitList(aUnitList, bUnitList []ZUnitMap, hasEcho bool) (bool, error) {
-    var isDiff bool
+    var isSame bool
     aDiffUnit := make([]map[string]interface{}, 0)
     bDiffUnit := make([]map[string]interface{}, 0)
     _bDiffUnit := make([]map[string]interface{}, 0)
@@ -54,13 +54,13 @@ func DiffUnitList(aUnitList, bUnitList []ZUnitMap, hasEcho bool) (bool, error) {
     }
 
     if len(aDiffUnit) == 0 && len(bDiffUnit) == 0 {
-        isDiff = false
+        isSame = true
     } else {
-        isDiff = true
+        isSame = false
     }
 
     if !hasEcho {
-        return isDiff, nil
+        return isSame, nil
     }
 
     fmt.Println("===[start: detail for a]")
@@ -83,7 +83,7 @@ func DiffUnitList(aUnitList, bUnitList []ZUnitMap, hasEcho bool) (bool, error) {
     }
     fmt.Println("===[end: detail for b]")
 
-    return isDiff, nil
+    return isSame, nil
 }
 
 func CreateNewHostGroup(aZAPI, bZAPI *ZabbixAPI) error {
@@ -465,12 +465,12 @@ func CheckHostGroup(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
         return false, err
     }
 
-    isDiff, err := DiffUnitList(aZHostGroupList, bZHostGroupList, true)
+    isSame, err := DiffUnitList(aZHostGroupList, bZHostGroupList, true)
     if err != nil {
         return false, err
     }
 
-    return isDiff, nil
+    return isSame, nil
 }
 
 func CheckHost(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, error) {
@@ -494,12 +494,12 @@ func CheckHost(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, error) {
         return false, err
     }
 
-    isDiff, err := DiffUnitList(aZHostList, bZHostList, true)
+    isSame, err := DiffUnitList(aZHostList, bZHostList, true)
     if err != nil {
         return false, err
     }
 
-    return isDiff, nil
+    return isSame, nil
 }
 
 func CheckItem(aZAPI, bZAPI *ZabbixAPI, host string) (bool, error) {
@@ -521,16 +521,43 @@ func CheckItem(aZAPI, bZAPI *ZabbixAPI, host string) (bool, error) {
         return false, err
     }
 
-    isDiff, err := DiffUnitList(aZItemList, bZItemList, true)
+    isSame, err := DiffUnitList(aZItemList, bZItemList, true)
     if err != nil {
         return false, err
     }
 
-    return isDiff, nil
+    return isSame, nil
 }
 
-// func CheckItemAll(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
-// }
+func CheckItemGroup(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, error) {
+    aParams := make(map[string]interface{}, 0)
+    aParams["output"] = []string{"host"}
+    aParams["selectGroups"] = hostgroup
+    aZHostList, err := aZAPI.Host("get", aParams)
+    if err != nil {
+        return false, err
+    }
+    aHostList := make([]string, len(aZHostList))
+    for inx, val := range aZHostList {
+        for _, mVal := range val {
+            _mVal, ok := mVal.(string)
+            if !ok {
+                return false, errors.New("convert ZUnitMap is failed")
+            }
+            aHostList[inx] = _mVal
+        }
+    }
+
+    isSame := false
+    for _, host := range aHostList {
+        isSame, err = CheckItem(aZAPI, bZAPI, host)
+        if err != nil {
+            return false, err
+        }
+    }
+
+    return isSame, nil
+}
 
 func CheckTriggerNum(aZAPI, bZAPI *ZabbixAPI, host string) (bool, error) {
     aParams := make(map[string]interface{}, 0)
@@ -554,8 +581,35 @@ func CheckTriggerNum(aZAPI, bZAPI *ZabbixAPI, host string) (bool, error) {
     return len(aZTriggerList) == len(bZTriggerList), nil
 }
 
-// func CheckTriggerNumAll(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
-// }
+func CheckTriggerNumGroup(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, error) {
+    aParams := make(map[string]interface{}, 0)
+    aParams["output"] = []string{"host"}
+    aParams["selectGroups"] = hostgroup
+    aZHostList, err := aZAPI.Host("get", aParams)
+    if err != nil {
+        return false, err
+    }
+    aHostList := make([]string, len(aZHostList))
+    for inx, val := range aZHostList {
+        for _, mVal := range val {
+            _mVal, ok := mVal.(string)
+            if !ok {
+                return false, errors.New("convert ZUnitMap is failed")
+            }
+            aHostList[inx] = _mVal
+        }
+    }
+
+    isSame := false
+    for _, host := range aHostList {
+        isSame, err = CheckTriggerNum(aZAPI, bZAPI, host)
+        if err != nil {
+            return false, err
+        }
+    }
+
+    return isSame, nil
+}
 
 func CheckValuemap(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
     aParams := make(map[string]interface{}, 0)
@@ -572,12 +626,12 @@ func CheckValuemap(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
         return false, err
     }
 
-    isDiff, err := DiffUnitList(aValuemapList, bValuemapList, true)
+    isSame, err := DiffUnitList(aValuemapList, bValuemapList, true)
     if err != nil {
         return false, err
     }
 
-    return isDiff, nil
+    return isSame, nil
 }
 
 func CheckMap(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
