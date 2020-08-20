@@ -169,6 +169,22 @@ func main() {
         os.Exit(1)
     }
 
+    aZAPI, err = NewZabbixAPI(aZAPIUrl, aZAPIUser, aZAPIPasswd)
+    aZDB, err = NewZabbixDB(aZDBDriver, aZDBHost, aZDBPort, aZDBUser, aZDBPasswd, aZDBDatabase)
+    bZAPI, err = NewZabbixAPI(bZAPIUrl, bZAPIUser, bZAPIPasswd)
+    bZDB, err = NewZabbixDB(bZDBDriver, bZDBHost, bZDBPort, bZDBUser, bZDBPasswd, bZDBDatabase)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "init for api and db resource get error: %s\n", err)
+        os.Exit(1)
+    }
+
+    _, err = aZAPI.Login()
+    _, err = bZAPI.Login()
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "login for api get error: %s\n", err)
+        os.Exit(1)
+    }
+
     if aZAPI == nil || aZDB == nil {
         fmt.Fprintln(os.Stderr, "the old zabbix api or db object is empty")
         os.Exit(1)
