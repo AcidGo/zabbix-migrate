@@ -10,6 +10,8 @@ import (
 )
 
 const (
+    CFG_F_PATH = "zabbix_migrate.ini"
+
     CFG_S_OLD = "old"
     CFG_S_OLD_K_DBDRIVER = "db_driver"
     CFG_S_OLD_K_DBHOST = "db_host"
@@ -88,12 +90,12 @@ var (
 )
 
 func initConfig() error {
-    cfg, err := ini.Load("zabbix_migrate.ini")
+    cfg, err := ini.Load(CFG_F_PATH)
     if err != nil {
         return err
     }
 
-    sOLD, err := cfg.GetSection("old")
+    sOLD, err := cfg.GetSection(CFG_S_OLD)
     if err != nil {
         return err
     }
@@ -107,7 +109,7 @@ func initConfig() error {
     aZAPIUser       = sOLD.Key(CFG_S_OLD_K_APIUSER).Value()
     aZAPIPasswd     = sOLD.Key(CFG_S_OLD_K_APIPASSWD).Value()
 
-    sNEW, err := cfg.GetSection("old")
+    sNEW, err := cfg.GetSection(CFG_S_NEW)
     if err != nil {
         return err
     }
@@ -168,6 +170,9 @@ func main() {
         flag.Usage()
         os.Exit(1)
     }
+
+    log.Printf("old zabbix url: %s", aZAPIUrl)
+    log.Printf("new zabbix url: %s", bZAPIUrl)
 
     aZAPI, err = NewZabbixAPI(aZAPIUrl, aZAPIUser, aZAPIPasswd)
     aZDB, err = NewZabbixDB(aZDBDriver, aZDBHost, aZDBPort, aZDBUser, aZDBPasswd, aZDBDatabase)

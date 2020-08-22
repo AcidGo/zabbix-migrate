@@ -214,7 +214,7 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
         }
     } else {
         sql1 := fmt.Sprintf("select * from %s where itemid = ?", hTable)
-        sql2 := fmt.Sprintf("insert into %s values(?, ?, ?, ?, ?, ?, ?, ?) on duplicate key update timestamp=?,source=?,severity=?,logeventid=?,ns=?", hTable)
+        sql2 := fmt.Sprintf("insert into %s values(?, ?, ?, ?, ?, ?, ?, ?) on duplicate key update timestamp=?,source=?,severity=?, value=?, logeventid=?,ns=?", hTable)
         for _, itemid := range aItemList {
             aRows, err := db.DB.Query(sql1, itemid)
             if err != nil {

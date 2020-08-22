@@ -93,7 +93,7 @@ func CreateNewHostGroup(aZAPI, bZAPI *ZabbixAPI) error {
     aFilter := make(map[string]interface{}, 0)
     aParams["output"] = "extend"
     aParams["filter"] = aFilter
-    aZHostGroupLst, err := aZAPI.HostGroup("get", aParams)
+    aZHostGroupList, err := aZAPI.HostGroup("get", aParams)
     if err != nil {
         return err
     }
@@ -102,15 +102,15 @@ func CreateNewHostGroup(aZAPI, bZAPI *ZabbixAPI) error {
     bFilter := make(map[string]interface{}, 0)
     bParams["output"] = "extend"
     bParams["filter"] = bFilter
-    bZHostGroupLst, err := bZAPI.HostGroup("get", bParams)
+    bZHostGroupList, err := bZAPI.HostGroup("get", bParams)
     if err != nil {
         return err
     }
 
     tParams := make(map[string]interface{}, 0)
-    for _, aZHostGroup := range aZHostGroupLst {
+    for _, aZHostGroup := range aZHostGroupList {
         hasExists := false
-        for _, bZHostGroup := range bZHostGroupLst {
+        for _, bZHostGroup := range bZHostGroupList {
             if bZHostGroup["name"] == aZHostGroup["name"] {
                 hasExists = true
                 break
@@ -407,12 +407,8 @@ func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin i
         return err
     }
     for _, hMap := range hMapList {
-        log.Error(hMap)
         for _, hTable := range HistoryTables {
-            log.Error(hTable)
             for hostid, host := range hMap {
-                log.Error(hostid)
-                log.Error(host)
                 err := aZDB.SyncHistoryToOne(bZDB, hTable, hostid, host)
                 if err != nil {
                     return err
@@ -432,7 +428,6 @@ func SyncTrends(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin in
         return err
     }
     for _, hMap := range hMapList {
-        log.Error(hMap)
         for _, sTable := range TrendsTables {
             for hostid, host := range hMap {
                 err := aZDB.SyncTrendsToOne(bZDB, sTable, hostid, host)
@@ -539,7 +534,10 @@ func CheckItemGroup(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, error) {
     }
     aHostList := make([]string, len(aZHostList))
     for inx, val := range aZHostList {
-        for _, mVal := range val {
+        for mKey, mVal := range val {
+            if mKey != "host" {
+                continue
+            }
             _mVal, ok := mVal.(string)
             if !ok {
                 return false, errors.New("convert ZUnitMap is failed")
@@ -548,11 +546,15 @@ func CheckItemGroup(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, error) {
         }
     }
 
-    isSame := false
+    isSame := true
     for _, host := range aHostList {
-        isSame, err = CheckItem(aZAPI, bZAPI, host)
+        var innerIsSame bool
+        innerIsSame, err = CheckItem(aZAPI, bZAPI, host)
         if err != nil {
             return false, err
+        }
+        if !innerIsSame {
+            isSame = false
         }
     }
 
@@ -564,7 +566,7 @@ func CheckTriggerNum(aZAPI, bZAPI *ZabbixAPI, host string) (bool, error) {
     aParams["output"] = "triggerid"
     aParams["host"] = host
     aParams["sortfield"] = "triggerid"
-    aZTriggerList, err := aZAPI.Item("get", aParams)
+    aZTriggerList, err := aZAPI.Trigger("get", aParams)
     if err != nil {
         return false, err
     }
@@ -573,7 +575,7 @@ func CheckTriggerNum(aZAPI, bZAPI *ZabbixAPI, host string) (bool, error) {
     bParams["output"] = "triggerid"
     bParams["host"] = host
     bParams["sortfield"] = "triggerid"
-    bZTriggerList, err := bZAPI.Item("get", bParams)
+    bZTriggerList, err := bZAPI.Trigger("get", bParams)
     if err != nil {
         return false, err
     }
@@ -591,7 +593,10 @@ func CheckTriggerNumGroup(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, erro
     }
     aHostList := make([]string, len(aZHostList))
     for inx, val := range aZHostList {
-        for _, mVal := range val {
+        for mKey, mVal := range val {
+            if mKey != "host" {
+                continue
+            }
             _mVal, ok := mVal.(string)
             if !ok {
                 return false, errors.New("convert ZUnitMap is failed")
@@ -600,11 +605,15 @@ func CheckTriggerNumGroup(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, erro
         }
     }
 
-    isSame := false
+    isSame := true
     for _, host := range aHostList {
-        isSame, err = CheckTriggerNum(aZAPI, bZAPI, host)
+        var innerIsSame bool
+        innerIsSame, err = CheckTriggerNum(aZAPI, bZAPI, host)
         if err != nil {
             return false, err
+        }
+        if !innerIsSame {
+            isSame = false
         }
     }
 
