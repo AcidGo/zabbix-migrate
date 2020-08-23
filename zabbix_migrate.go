@@ -166,7 +166,9 @@ func CleanNewTemplate(bZAPI *ZabbixAPI, bZDB *ZabbixDB) error {
         bParams := tTemplateList
         _, err := bZAPI.Template("delete", bParams)
         if err != nil {
-            log.Error(fmt.Sprintf("try to delete first template [%d] is failed", tTemplateList[0]))
+            if len(tTemplateList) > 0 {
+                log.Errorf("try to delete first template [%d] is failed", tTemplateList[0])
+            }
             return err
         }
         time.Sleep(2*time.Second)
@@ -176,6 +178,144 @@ func CleanNewTemplate(bZAPI *ZabbixAPI, bZDB *ZabbixDB) error {
         "func": "CleanNewTemplate",
         "step": "finish",
     }).Debug("finish clean all template on new zabbix")
+    return nil
+}
+
+func CreateNewValuemap(aZAPI ,bZAPI *ZabbixAPI) error {
+    log.WithFields(log.Fields{
+        "func": "CreateNewValuemap",
+        "step": "start",
+    }).Debug("start create new valuemap on new zabbix")
+
+    aParams := make(map[string]interface{}, 0)
+    aParams["output"] = "extend"
+    aValuemapZList, err := aZAPI.Valuemap("get", aParams)
+    if err != nil {
+        return err
+    }
+    aValuemapList := make([]string, 0)
+    for _, zUM := range aValuemapZList {
+        if valI, ok := zUM["valuemapid"]; ok {
+            if valS, _ok := valI.(string); _ok {
+                aValuemapList = append(aValuemapList, valS)
+            }
+        }
+    }
+
+    step := 10
+    stepN := int(len(aValuemapList)/step)
+    for i:=0; i<=stepN; i++ {
+        var tValuemapList []string
+        if i == stepN {
+            tValuemapList = aValuemapList[step*i:len(aValuemapList)]
+        } else {
+            tValuemapList = aValuemapList[step*i:step*(i+1)]
+        }
+        aParams := make(map[string]interface{}, 0)
+        aOptions := make(map[string]interface{}, 0)
+        aOptions["valueMaps"] = tValuemapList
+        aParams["options"] = aOptions
+        aParams["format"] = "xml"
+        aTemplateExport, err := aZAPI.Configuration("export", aParams)
+        if err != nil {
+            log.WithFields(log.Fields{
+                "func": "CreateNewValuemap",
+                "step": "export",
+            }).Errorf("try to export first valuemap [%d] is failed", tValuemapList[0])
+            return err
+        }
+
+        bParams := make(map[string]interface{}, 0)
+        bRules := make(map[string]interface{}, 0)
+        bRules["groups"] = map[string]bool{
+            "createMissing": false,
+        }
+        bRules["hosts"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": false,
+        }
+        bRules["templates"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": false,
+        }
+        bRules["templateScreens"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": false,
+            "deleteMissing": false,
+        }
+        bRules["templateLinkage"] = map[string]bool{
+            "createMissing": false,
+        }
+        bRules["applications"] = map[string]bool{
+            "createMissing": false,
+            "deleteMissing": false,
+        }
+        bRules["items"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": false,
+            "deleteMissing": false,
+        }
+        bRules["discoveryRules"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": false,
+            "deleteMissing": false,
+        }
+        bRules["triggers"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": false,
+            "deleteMissing": false,
+        }
+        bRules["graphs"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": false,
+            "deleteMissing": false,
+        }
+        bRules["httptests"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": false,
+            "deleteMissing": false,
+        }
+        bRules["screens"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": false,
+        }
+        bRules["maps"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": false,
+        }
+        bRules["images"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": false,
+        }
+        bRules["valueMaps"] = map[string]bool{
+            "updateExisting": false,
+            "createMissing": true,
+        }
+        bParams["rules"] = bRules
+        bParams["format"] = "xml"
+        bParams["source"] = aTemplateExport
+        res, err := bZAPI.Configuration("import", bParams)
+        if err != nil {
+            log.WithFields(log.Fields{
+                "func": "CreateNewValuemap",
+                "step": "import",
+            }).Errorf("try to import first valuemap [%d] is failed", tValuemapList[0])
+            return err
+        }
+        if res.(bool) != true {
+            log.WithFields(log.Fields{
+                "func": "CreateNewValuemap",
+                "step": "import",
+            }).Errorf("try to import first valuemap [%d] is failed", tValuemapList[0])
+            return errors.New("result of import valuemap task is false")
+        }
+        time.Sleep(2*time.Second)
+    }
+
+    log.WithFields(log.Fields{
+        "func": "CreateNewValuemap",
+        "step": "start",
+    }).Debug("start create new valuemap on new zabbix")
     return nil
 }
 
@@ -222,65 +362,65 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI) error
             "createMissing": true,
         }
         bRules["hosts"] = map[string]bool{
-            "createMissing": false,
             "updateExisting": false,
+            "createMissing": false,
         }
         bRules["templates"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
         }
         bRules["templateScreens"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
             "deleteMissing": false,
         }
         bRules["templateLinkage"] = map[string]bool{
-            "createMissing": true,
+            "createMissing": false,
         }
         bRules["applications"] = map[string]bool{
             "createMissing": true,
             "deleteMissing": false,
         }
         bRules["items"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
             "deleteMissing": false,
         }
         bRules["discoveryRules"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
             "deleteMissing": false,
         }
         bRules["triggers"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
             "deleteMissing": false,
         }
         bRules["graphs"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
             "deleteMissing": false,
         }
         bRules["httptests"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
             "deleteMissing": false,
         }
         bRules["screens"] = map[string]bool{
-            "createMissing": false,
             "updateExisting": false,
+            "createMissing": false,
         }
         bRules["maps"] = map[string]bool{
-            "createMissing": false,
             "updateExisting": false,
+            "createMissing": false,
         }
         bRules["images"] = map[string]bool{
-            "createMissing": false,
             "updateExisting": false,
+            "createMissing": false,
         }
         bRules["valueMaps"] = map[string]bool{
-            "createMissing": false,
-            "updateExisting": true,
+            "updateExisting": false,
+            "createMissing": true,
         }
         bParams["rules"] = bRules
         bParams["format"] = "xml"
@@ -360,16 +500,16 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
             "createMissing": true,
         }
         bRules["hosts"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
         }
         bRules["templates"] = map[string]bool{
-            "createMissing": false,
             "updateExisting": false,
+            "createMissing": false,
         }
         bRules["templateScreens"] = map[string]bool{
-            "createMissing": false,
             "updateExisting": false,
+            "createMissing": false,
             "deleteMissing": false,
         }
         bRules["templateLinkage"] = map[string]bool{
@@ -380,45 +520,45 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
             "deleteMissing": false,
         }
         bRules["items"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
             "deleteMissing": false,
         }
         bRules["discoveryRules"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
             "deleteMissing": false,
         }
         bRules["triggers"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
             "deleteMissing": false,
         }
         bRules["graphs"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
             "deleteMissing": false,
         }
         bRules["httptests"] = map[string]bool{
-            "createMissing": true,
             "updateExisting": true,
+            "createMissing": true,
             "deleteMissing": false,
         }
         bRules["screens"] = map[string]bool{
-            "createMissing": false,
             "updateExisting": false,
+            "createMissing": false,
         }
         bRules["maps"] = map[string]bool{
-            "createMissing": false,
             "updateExisting": false,
+            "createMissing": false,
         }
         bRules["images"] = map[string]bool{
-            "createMissing": false,
             "updateExisting": false,
+            "createMissing": false,
         }
         bRules["valueMaps"] = map[string]bool{
-            "createMissing": false,
-            "updateExisting": true,
+            "updateExisting": false,
+            "createMissing": true,
         }
         bParams["rules"] = bRules
         bParams["format"] = "xml"
