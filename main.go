@@ -132,6 +132,9 @@ func initFlag() error {
     flag.StringVar(&checkType, "c", "", "select the type of check, support for hostgroup|host|item|trigger|valuemap|map|all")
     flag.StringVar(&syncType, "s", "", "select the type of sync, support for trends|history")
 
+    flag.StringVar(&fHostGroup, "g", "", "input params about hostgroup")
+    flag.IntVar(&fHostIdBegin, "i", 0, "input params about host begin id")
+
     flag.Usage = flagUsage
     flag.Parse()
 
@@ -158,7 +161,7 @@ func flagUsage() {
     author: %s
     gitCommit: %s
     buildTime: %s
-Usage: %s [-h] [-m <migrateType>] [-c <checkType>] [-s <syncType>]
+Usage: %s [-h] [-m <migrateType>] [-c <checkType>] [-s <syncType>] [-g <hostGroup>] [-i <hostIdBegin]>
 Options:`, appName, appVersion, appAuthor, appGitCommitHash, appBuildTime, appName)
     fmt.Fprintf(os.Stderr, "\n")
     flag.PrintDefaults()
