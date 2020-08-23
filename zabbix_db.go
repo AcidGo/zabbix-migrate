@@ -17,6 +17,7 @@ type ZabbixDB struct {
     password    string
     DBDriver    string
     Database    string
+    DBVersion   int
     DB          *sql.DB
 }
 
@@ -24,7 +25,16 @@ type HostMap map[int]string
 type ItemMap map[int]string
 
 func NewZabbixDB(dbDriver string, host string, port int, user string, password string, database string) (*ZabbixDB, error) {
-    dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", user, password, host, port, database)
+    var dsn string
+    switch dbDriver {
+    case "mysql":
+        dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", user, password, host, port, database)
+    case "postgres":
+        dsn = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, database)
+    default:
+        return &ZabbixDB{}, errors.New("cannot support for the db driver")
+    }
+
     db, err := sql.Open(dbDriver, dsn)
     if err != nil {
         return &ZabbixDB{}, err
@@ -33,12 +43,22 @@ func NewZabbixDB(dbDriver string, host string, port int, user string, password s
         return &ZabbixDB{}, errors.New("ping testing fail, open database fail")
     }
 
+    var dbVersion int
+    row := db.QueryRow("select floor(mandatory/1000000) from dbversion limit 1;")
+    err = row.Scan(&dbVersion)
+    if err != nil {
+        return &ZabbixDB{}, errors.New("get dbversion failed")
+    }
+
+
+
     return &ZabbixDB{
         host: host,
         port: port,
         user: user,
         password: password,
         DBDriver: dbDriver,
+        DBVersion: dbVersion,
         Database: database,
         DB: db,
     }, nil
@@ -155,7 +175,14 @@ func (db *ZabbixDB) GetItemMap(hostid int) (ItemMap, error) {
 func (db *ZabbixDB) MappingItemId(host string, iMap ItemMap) (map[int]int, error) {
     res := make(map[int]int)
     for itemid, key_ := range iMap {
-        row := db.DB.QueryRow("select i.itemid from items i left join hosts h on i.hostid = h.hostid where h.host = ? and i.key_ = ?", host, key_)
+        var row *sql.Row
+        switch db.DBDriver {
+        case "mysql":
+            row = db.DB.QueryRow("select i.itemid from items i left join hosts h on i.hostid = h.hostid where h.host = ? and i.key_ = ?", host, key_)
+        case "postgres":
+            row = db.DB.QueryRow("select i.itemid from items i left join hosts h on i.hostid = h.hostid where h.host = $1 and i.key_ = $2", host, key_)
+        }
+        
         var _itemid int
         err := row.Scan(&_itemid)
         if err != nil {
@@ -187,7 +214,14 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
 
     if hTable != "history_log" {
         sql1 := fmt.Sprintf("select * from %s where itemid = ?", hTable)
-        sql2 := fmt.Sprintf("insert into %s values(?, ?, ?, ?) on duplicate key update value=?,ns=?", hTable)
+        var sql2 string
+        switch bZDB.DBDriver {
+        case "mysql":
+            sql2 = fmt.Sprintf("insert into %s values(?, ?, ?, ?)", hTable)
+        case "postgres":
+            sql2 = fmt.Sprintf("insert into %s values($1, $2, $3, $4)", hTable)
+        }
+
         for _, itemid := range aItemList {
             aRows, err := db.DB.Query(sql1, itemid)
             if err != nil {
@@ -203,7 +237,6 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
                 res, err := bZDB.DB.Exec(
                     sql2, 
                     mappingI[itemid], _clock, value, _ns,
-                    value, _ns,
                 )
                 if err != nil {
                     log.Error(fmt.Sprintf("try to sync hostid [%d] itemid [%d] is failed", aHostid, itemid))
@@ -214,7 +247,14 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
         }
     } else {
         sql1 := fmt.Sprintf("select * from %s where itemid = ?", hTable)
-        sql2 := fmt.Sprintf("insert into %s values(?, ?, ?, ?, ?, ?, ?, ?) on duplicate key update timestamp=?,source=?,severity=?, value=?, logeventid=?,ns=?", hTable)
+        var sql2 string
+        switch bZDB.DBDriver {
+        case "mysql":
+            sql2 = fmt.Sprintf("insert into %s values(?, ?, ?, ?, ?, ?, ?, ?)", hTable)
+        case "postgres":
+            sql2 = fmt.Sprintf("insert into %s values($1, $2, $3, $4, $5, $6, $7, $8)", hTable)
+        }
+
         for _, itemid := range aItemList {
             aRows, err := db.DB.Query(sql1, itemid)
             if err != nil {
@@ -234,7 +274,6 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
                 _, err =bZDB.DB.Exec(
                     sql2, 
                     mappingI[itemid], _clock, _timestamp, _source, _severity, value, _logeventid, _ns,
-                    _timestamp, _source, _severity, value, _logeventid, _ns,
                 )
                 if err != nil {
                     log.Error(fmt.Sprintf("try to sync %s hostid [%d] itemid [%d] is failed", hTable, aHostid, itemid))
@@ -265,10 +304,25 @@ func (db *ZabbixDB) SyncTrendsToOne(bZDB *ZabbixDB, tTable string, hostid int, h
     }
 
     sql1 := fmt.Sprintf("select * from %s where itemid = ?", tTable)
-    sql2 := fmt.Sprintf(
-        "insert into %s values(?, ?, ?, ?, ?, ?) on duplicate key update num=?, value_min=?, value_avg=?, value_max=?", 
-        tTable,
-    )
+    var sql2 string
+    switch bZDB.DBDriver {
+    case "mysql":
+        sql2 = fmt.Sprintf(
+            "insert into %s values(?, ?, ?, ?, ?, ?) on duplicate key update num=?, value_min=?, value_avg=?, value_max=?", 
+            tTable,
+        )
+    case "postgres":
+        sql2 = fmt.Sprintf(`insert into %s values($1, $2, $3, $4, $5, $6) 
+            on conflict(itemid, clock) do update
+            set
+              num = $7,
+              value_min = $8,
+              value_avg = $9,
+              value_max = $10`, 
+            tTable,
+        )
+    }
+
     for _, itemid := range aItemList {
         aRows, err := db.DB.Query(sql1, itemid)
         if err != nil {

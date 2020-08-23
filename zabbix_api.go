@@ -52,10 +52,6 @@ type ZabbixAPIError struct {
 }
 
 type ZUnitMap map[string]interface{}
-// type ZHostGroup map[string]interface{}
-// type ZHost map[string]interface{}
-// type ZTemplate map[string]interface{}
-// type ZValuemap map[string]interface{}
 
 func NewZabbixAPI(url, user, password string) (*ZabbixAPI, error) {
     return &ZabbixAPI{
