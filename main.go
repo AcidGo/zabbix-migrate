@@ -177,14 +177,6 @@ func init() {
         }).Fatal(err)
     }
 
-    err = initConfig()
-    if err != nil {
-        log.WithFields(log.Fields{
-            "func": "init",
-            "step": "initConfig",
-        }).Fatal(err)
-    }
-
     log.SetLevel(log.Level(fLogLevel))
 }
 
@@ -204,9 +196,18 @@ Options:`, appName, appVersion, appAuthor, appGitCommitHash, appBuildTime, appGo
 
 func main() {
     var err error
+
     if helpFlag {
         flag.Usage()
         os.Exit(1)
+    }
+
+    err = initConfig()
+    if err != nil {
+        log.WithFields(log.Fields{
+            "func": "init",
+            "step": "initConfig",
+        }).Fatal(err)
     }
 
     log.WithFields(log.Fields{
@@ -218,21 +219,34 @@ func main() {
 
     aZAPI, err = NewZabbixAPI(aZAPIUrl, aZAPIUser, aZAPIPasswd)
     aZDB, err = NewZabbixDB(aZDBDriver, aZDBHost, aZDBPort, aZDBUser, aZDBPasswd, aZDBDatabase)
+    if err != nil {
+        log.WithFields(log.Fields{
+            "func": "main",
+            "step": "db.connect",
+        }).Fatalf("connect for db [%s:%d] get error: %s", aZDBHost, aZDBPort, err)
+    }
     bZAPI, err = NewZabbixAPI(bZAPIUrl, bZAPIUser, bZAPIPasswd)
     bZDB, err = NewZabbixDB(bZDBDriver, bZDBHost, bZDBPort, bZDBUser, bZDBPasswd, bZDBDatabase)
     if err != nil {
         log.WithFields(log.Fields{
             "func": "main",
-        }).Fatalf("init for api and db resource get error: %s", err)
+            "step": "db.connect",
+        }).Fatalf("connect for db [%s:%d] get error: %s", bZDBHost, bZDBPort, err)
     }
 
     _, err = aZAPI.Login()
+    if err != nil {
+        log.WithFields(log.Fields{
+            "func": "main",
+            "step": "api.login",
+        }).Fatalf( "login for api [%s] get error: %s", aZAPI.url, err)
+    }
     _, err = bZAPI.Login()
     if err != nil {
         log.WithFields(log.Fields{
             "func": "main",
             "step": "api.login",
-        }).Fatalf( "login for api get error: %s", err)
+        }).Fatalf( "login for api [%s] get error: %s", bZAPI.url, err)
     }
 
     if aZAPI == nil || aZDB == nil {
