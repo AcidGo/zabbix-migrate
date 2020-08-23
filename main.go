@@ -143,7 +143,7 @@ func initFlag() error {
     flag.StringVar(&confPath, "f", "zabbix_migrate.ini", "set path of config file than ini format")
 
     flag.BoolVar(&helpFlag, "h", false, "show for help")
-    flag.StringVar(&migrateType, "m", "", "select the type of migrate, support for hostgroup|template|host")
+    flag.StringVar(&migrateType, "m", "", "select the type of migrate, support for hostgroup|valuemap|template|host")
     flag.StringVar(&checkType, "c", "", "select the type of check, support for hostgroup|host|item|trigger|valuemap|map|all")
     flag.StringVar(&syncType, "s", "", "select the type of sync, support for trends|history")
 
@@ -264,6 +264,8 @@ func main() {
         switch migrateType {
         case "hostgroup":
             err = CreateNewHostGroup(aZAPI, bZAPI)
+        case "valuemap":
+            err = CreateNewValuemap(aZAPI, bZAPI)
         case "template":
             err = CleanNewTemplate(bZAPI, bZDB)
             if err != nil {

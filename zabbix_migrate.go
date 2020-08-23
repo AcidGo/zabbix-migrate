@@ -140,47 +140,6 @@ func CreateNewHostGroup(aZAPI, bZAPI *ZabbixAPI) error {
     return nil
 }
 
-func CleanNewTemplate(bZAPI *ZabbixAPI, bZDB *ZabbixDB) error {
-    log.WithFields(log.Fields{
-        "func": "CleanNewTemplate",
-        "step": "start",
-    }).Debug("start clean all template on new zabbix")
-
-    bTemplateList, err := bZDB.GetTemplateList()
-    if err != nil {
-        return err
-    }
-    if len(bTemplateList) == 0 {
-        return nil
-    }
-
-    step := 10
-    stepN := int(len(bTemplateList)/step)
-    for i:=0;i<=stepN;i++ {
-        var tTemplateList []int
-        if i == stepN {
-            tTemplateList = bTemplateList[step*i:len(bTemplateList)]
-        } else {
-            tTemplateList = bTemplateList[step*i:step*(i+1)]
-        }
-        bParams := tTemplateList
-        _, err := bZAPI.Template("delete", bParams)
-        if err != nil {
-            if len(tTemplateList) > 0 {
-                log.Errorf("try to delete first template [%d] is failed", tTemplateList[0])
-            }
-            return err
-        }
-        time.Sleep(2*time.Second)
-    }
-
-    log.WithFields(log.Fields{
-        "func": "CleanNewTemplate",
-        "step": "finish",
-    }).Debug("finish clean all template on new zabbix")
-    return nil
-}
-
 func CreateNewValuemap(aZAPI ,bZAPI *ZabbixAPI) error {
     log.WithFields(log.Fields{
         "func": "CreateNewValuemap",
@@ -316,6 +275,51 @@ func CreateNewValuemap(aZAPI ,bZAPI *ZabbixAPI) error {
         "func": "CreateNewValuemap",
         "step": "start",
     }).Debug("start create new valuemap on new zabbix")
+    return nil
+}
+
+// func SortTemplateDepend(aZAPI *ZabbixAPI, temlateList []string) ([]string, error) {
+    
+// }
+
+func CleanNewTemplate(bZAPI *ZabbixAPI, bZDB *ZabbixDB) error {
+    log.WithFields(log.Fields{
+        "func": "CleanNewTemplate",
+        "step": "start",
+    }).Debug("start clean all template on new zabbix")
+
+    bTemplateList, err := bZDB.GetTemplateList()
+    if err != nil {
+        return err
+    }
+    if len(bTemplateList) == 0 {
+        return nil
+    }
+
+    step := 10
+    stepN := int(len(bTemplateList)/step)
+    for i:=0;i<=stepN;i++ {
+        var tTemplateList []int
+        if i == stepN {
+            tTemplateList = bTemplateList[step*i:len(bTemplateList)]
+        } else {
+            tTemplateList = bTemplateList[step*i:step*(i+1)]
+        }
+        bParams := tTemplateList
+        _, err := bZAPI.Template("delete", bParams)
+        if err != nil {
+            if len(tTemplateList) > 0 {
+                log.Errorf("try to delete first template [%d] is failed", tTemplateList[0])
+            }
+            return err
+        }
+        time.Sleep(2*time.Second)
+    }
+
+    log.WithFields(log.Fields{
+        "func": "CleanNewTemplate",
+        "step": "finish",
+    }).Debug("finish clean all template on new zabbix")
     return nil
 }
 
