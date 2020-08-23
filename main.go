@@ -190,24 +190,18 @@ func init() {
 
 func flagUsage() {
     fmt.Fprintf(os.Stderr, `zabbix_migrate:
-    version: %s/%s
-    author: %s
-    gitCommit: %s
-    buildTime: %s
+    Version: %s
+    Author: %s
+    GitCommit: %s
+    BuildTime: %s
+    GoVersion: %s
 Usage: %s [-h] [-f <configPath>] [-m <migrateType>] [-c <checkType>] [-s <syncType>] [-g <hostGroup>] [-i <hostIdBegin]>
-Options:`, appName, appVersion, appAuthor, appGitCommitHash, appBuildTime, appName)
+Options:`, appName, appVersion, appAuthor, appGitCommitHash, appBuildTime, appGoVersion, appName)
     fmt.Fprintf(os.Stderr, "\n")
     flag.PrintDefaults()
 }
 
 func main() {
-    appName             = ""
-    appAuthor           = ""
-    appVersion          = ""
-    appGitCommitHash    = ""
-    appBuildTime        = ""
-    appGoVersion        = ""
-
     var err error
     if helpFlag {
         flag.Usage()
