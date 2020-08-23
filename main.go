@@ -3,15 +3,15 @@ package main
 import (
     "flag"
     "fmt"
-    "log"
     "os"
+    "time"
 
     "gopkg.in/ini.v1"
+    log "github.com/sirupsen/logrus"
+    nested "github.com/antonfisher/nested-logrus-formatter"
 )
 
 const (
-    CFG_F_PATH = "zabbix_migrate.ini"
-
     CFG_S_OLD = "old"
     CFG_S_OLD_K_DBDRIVER = "db_driver"
     CFG_S_OLD_K_DBHOST = "db_host"
@@ -42,8 +42,8 @@ var (
     appVersion          string
     appGitCommitHash    string
     appBuildTime        string
+    appGoVersion        string
 )
-
 
 // config
 var (
@@ -72,6 +72,8 @@ var (
 
 // flag
 var (
+    confPath        string
+
     helpFlag        bool
     migrateType     string
     checkType       string
@@ -79,6 +81,8 @@ var (
 
     fHostGroup      string
     fHostIdBegin    int
+
+    fLogLevel       uint
 )
 
 // runtime
@@ -89,8 +93,17 @@ var (
     bZDB        *ZabbixDB
 )
 
+func initLogger() error {
+    log.SetFormatter(&nested.Formatter{
+        HideKeys:        true,
+        TimestampFormat: time.RFC3339,
+        FieldsOrder:     []string{"func", "step"},
+    })
+    return nil
+}
+
 func initConfig() error {
-    cfg, err := ini.Load(CFG_F_PATH)
+    cfg, err := ini.Load(confPath)
     if err != nil {
         return err
     }
@@ -127,6 +140,8 @@ func initConfig() error {
 }
 
 func initFlag() error {
+    flag.StringVar(&confPath, "f", "zabbix_migrate.ini", "set path of config file than ini format")
+
     flag.BoolVar(&helpFlag, "h", false, "show for help")
     flag.StringVar(&migrateType, "m", "", "select the type of migrate, support for hostgroup|template|host")
     flag.StringVar(&checkType, "c", "", "select the type of check, support for hostgroup|host|item|trigger|valuemap|map|all")
@@ -134,6 +149,8 @@ func initFlag() error {
 
     flag.StringVar(&fHostGroup, "g", "", "input params about hostgroup")
     flag.IntVar(&fHostIdBegin, "i", 0, "input params about host begin id")
+
+    flag.UintVar(&fLogLevel, "l", 4, "set log level number, 0 is panic ... 6 is trace")
 
     flag.Usage = flagUsage
     flag.Parse()
@@ -144,15 +161,31 @@ func initFlag() error {
 func init() {
     var err error
 
-    err = initConfig()
+    err = initLogger()
     if err != nil {
-        log.Fatal(err)
+        log.WithFields(log.Fields{
+            "func": "init",
+            "step": "initLogger",
+        }).Fatal(err)
     }
 
     err = initFlag()
     if err != nil {
-        log.Fatal(err)
+        log.WithFields(log.Fields{
+            "func": "init",
+            "step": "initFlag",
+        }).Fatal(err)
     }
+
+    err = initConfig()
+    if err != nil {
+        log.WithFields(log.Fields{
+            "func": "init",
+            "step": "initConfig",
+        }).Fatal(err)
+    }
+
+    log.SetLevel(log.Level(fLogLevel))
 }
 
 func flagUsage() {
@@ -161,45 +194,61 @@ func flagUsage() {
     author: %s
     gitCommit: %s
     buildTime: %s
-Usage: %s [-h] [-m <migrateType>] [-c <checkType>] [-s <syncType>] [-g <hostGroup>] [-i <hostIdBegin]>
+Usage: %s [-h] [-f <configPath>] [-m <migrateType>] [-c <checkType>] [-s <syncType>] [-g <hostGroup>] [-i <hostIdBegin]>
 Options:`, appName, appVersion, appAuthor, appGitCommitHash, appBuildTime, appName)
     fmt.Fprintf(os.Stderr, "\n")
     flag.PrintDefaults()
 }
 
 func main() {
+    appName             = ""
+    appAuthor           = ""
+    appVersion          = ""
+    appGitCommitHash    = ""
+    appBuildTime        = ""
+    appGoVersion        = ""
+
     var err error
     if helpFlag {
         flag.Usage()
         os.Exit(1)
     }
 
-    log.Printf("old zabbix url: %s", aZAPIUrl)
-    log.Printf("new zabbix url: %s", bZAPIUrl)
+    log.WithFields(log.Fields{
+        "func": "main",
+    }).Debugf("old zabbix url: %s", aZAPIUrl)
+    log.WithFields(log.Fields{
+        "func": "main",
+    }).Debugf("new zabbix url: %s", bZAPIUrl)
 
     aZAPI, err = NewZabbixAPI(aZAPIUrl, aZAPIUser, aZAPIPasswd)
     aZDB, err = NewZabbixDB(aZDBDriver, aZDBHost, aZDBPort, aZDBUser, aZDBPasswd, aZDBDatabase)
     bZAPI, err = NewZabbixAPI(bZAPIUrl, bZAPIUser, bZAPIPasswd)
     bZDB, err = NewZabbixDB(bZDBDriver, bZDBHost, bZDBPort, bZDBUser, bZDBPasswd, bZDBDatabase)
     if err != nil {
-        fmt.Fprintf(os.Stderr, "init for api and db resource get error: %s\n", err)
-        os.Exit(1)
+        log.WithFields(log.Fields{
+            "func": "main",
+        }).Fatalf("init for api and db resource get error: %s", err)
     }
 
     _, err = aZAPI.Login()
     _, err = bZAPI.Login()
     if err != nil {
-        fmt.Fprintf(os.Stderr, "login for api get error: %s\n", err)
-        os.Exit(1)
+        log.WithFields(log.Fields{
+            "func": "main",
+            "step": "api.login",
+        }).Fatalf( "login for api get error: %s", err)
     }
 
     if aZAPI == nil || aZDB == nil {
-        fmt.Fprintln(os.Stderr, "the old zabbix api or db object is empty")
-        os.Exit(1)
+        log.WithFields(log.Fields{
+            "func": "main",
+        }).Fatal("the old zabbix api or db object is empty")
     }
     if bZAPI == nil || bZDB == nil {
-        fmt.Fprintln(os.Stderr, "the new zabbix api or db object is empty")
-        os.Exit(1)
+        log.WithFields(log.Fields{
+            "func": "main",
+        }).Fatal("the new zabbix api or db object is empty")
     }
 
     if migrateType != "" {
@@ -209,16 +258,20 @@ func main() {
         case "template":
             err = CleanNewTemplate(bZAPI, bZDB)
             if err != nil {
-                fmt.Fprintln(os.Stderr, "clean template on new zabbix failed")
-                os.Exit(1)
+                log.WithFields(log.Fields{
+                    "func": "main",
+                    "step": "migrate.template",
+                }).Fatal("clean template on new zabbix failed")
             }
             err = CreateNewTemplate(aZAPI, aZDB, bZAPI)
         case "host":
             err = CreateNewHost(aZAPI, aZDB, bZAPI, fHostGroup, fHostIdBegin)
         }
         if err != nil {
-            fmt.Fprintln(os.Stderr, err)
-            os.Exit(1)
+            log.WithFields(log.Fields{
+                "func": "main",
+                "step": "migrate",
+            }).Fatal(err)
         }
     }
 
@@ -227,7 +280,10 @@ func main() {
         if checkType == "hostgroup" || checkType == "all" {
             isSame, err = CheckHostGroup(aZAPI, bZAPI)
             if err != nil {
-                fmt.Fprintf(os.Stderr, "check for hostgroup is error: %s\n", err)
+                log.WithFields(log.Fields{
+                    "func": "main",
+                    "step": "check.hostgroup",
+                }).Fatalf("check for hostgroup is error: %s", err)
             }
             if !isSame {
                 fmt.Println("check for hostgroup is different !!!")
@@ -239,7 +295,10 @@ func main() {
         if checkType == "host" || checkType == "all" {
             isSame, err = CheckHost(aZAPI, bZAPI, fHostGroup)
             if err != nil {
-                fmt.Fprintf(os.Stderr, "check for host is error: %s\n", err)
+                log.WithFields(log.Fields{
+                    "func": "main",
+                    "step": "check.host",
+                }).Errorf("check for host is error: %s", err)
             }
             if !isSame {
                 fmt.Println("check for host is different !!!")
@@ -251,7 +310,10 @@ func main() {
         if checkType == "item" || checkType == "all" {
             isSame, err = CheckItemGroup(aZAPI, bZAPI, fHostGroup)
             if err != nil {
-                fmt.Fprintf(os.Stderr, "check for item is error: %s\n", err)
+                log.WithFields(log.Fields{
+                    "func": "main",
+                    "step": "check.item",
+                }).Errorf("check for item is error: %s", err)
             }
             if !isSame {
                 fmt.Println("check for item is different !!!")
@@ -263,7 +325,10 @@ func main() {
         if checkType == "trigger" || checkType == "all" {
             isSame, err = CheckTriggerNumGroup(aZAPI, bZAPI, fHostGroup)
             if err != nil {
-                fmt.Fprintf(os.Stderr, "check for trigger is error: %s\n", err)
+                log.WithFields(log.Fields{
+                    "func": "main",
+                    "step": "check.trigger",
+                }).Errorf("check for trigger is error: %s", err)
             }
             if !isSame {
                 fmt.Println("check for trigger number is different !!!")
@@ -275,7 +340,10 @@ func main() {
         if checkType == "valuemap" || checkType == "all" {
             isSame, err = CheckValuemap(aZAPI, bZAPI)
             if err != nil {
-                fmt.Fprintf(os.Stderr, "check for valuemap is error: %s\n", err)
+                log.WithFields(log.Fields{
+                    "func": "main",
+                    "step": "check.valuemap",
+                }).Errorf("check for valuemap is error: %s", err)
             }
             if !isSame {
                 fmt.Println("check for valuemap is different !!!")
@@ -287,7 +355,10 @@ func main() {
         if checkType == "map" || checkType == "all" {
             isSame, err = CheckMap(aZAPI, bZAPI)
             if err != nil {
-                fmt.Fprintf(os.Stderr, "check for map is error: %s\n", err)
+                log.WithFields(log.Fields{
+                    "func": "main",
+                    "step": "check.map",
+                }).Errorf("check for map is error: %s", err)
             }
             if !isSame {
                 fmt.Println("check for map is different !!!")
@@ -302,15 +373,24 @@ func main() {
         case "trends":
             err = SyncTrends(aZDB, bZDB, fHostGroup, fHostIdBegin)
             if err != nil {
-                fmt.Fprintf(os.Stderr, "sync for trneds is error: %s\n", err)
+                log.WithFields(log.Fields{
+                    "func": "main",
+                    "step": "sync.trends",
+                }).Errorf("sync for trneds is error: %s", err)
             }
         case "history":
             err = SyncHistory(aZDB, bZDB, fHostGroup, fHostIdBegin)
             if err != nil {
-                fmt.Fprintf(os.Stderr, "sync for history is error: %s\n", err)
+                log.WithFields(log.Fields{
+                    "func": "main",
+                    "step": "sync.history",
+                }).Errorf("sync for history is error: %s", err)
             }
         default:
-            fmt.Fprintf(os.Stderr, "sync not support for %s\n", syncType)
+            log.WithFields(log.Fields{
+                "func": "main",
+                "step": "sync.default",
+            }).Errorf("sync not support for %s", syncType)
         }
     }
 

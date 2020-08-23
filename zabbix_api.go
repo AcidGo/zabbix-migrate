@@ -4,9 +4,10 @@ import (
     "bytes"
     "encoding/json"
     "errors"
-    "log"
     "io"
     "net/http"
+
+    log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -106,7 +107,10 @@ func (api *ZabbixAPI) Request(method string, params interface{}) (JsonRPCRespons
         }
     }
 
-    log.Println(string(reqJson))
+    log.WithFields(log.Fields{
+        "func": "ZabbixAPI.Request",
+        "step": "request.json",
+    }).Trace(string(reqJson))
 
     req, err := http.NewRequest("POST", api.url, bytes.NewBuffer(reqJson))
     if err != nil {
@@ -129,7 +133,10 @@ func (api *ZabbixAPI) Request(method string, params interface{}) (JsonRPCRespons
 
     rsp.Body.Close()
 
-    log.Println("res:", res)
+    log.WithFields(log.Fields{
+        "func": "ZabbixAPI.Request",
+        "step": "response.result",
+    }).Trace(res)
 
     return res, nil
 }

@@ -71,7 +71,7 @@ func DiffUnitList(aUnitList, bUnitList []ZUnitMap, hasEcho bool) (bool, error) {
         }
         fmt.Printf("- %s\n", jsonStr)
     }
-    fmt.Println("===[end: detail for a]")
+    fmt.Println("===[end:   detail for a]")
 
     fmt.Println("===[start: detail for b]")
     for _, v := range bDiffUnit {
@@ -81,13 +81,16 @@ func DiffUnitList(aUnitList, bUnitList []ZUnitMap, hasEcho bool) (bool, error) {
         }
         fmt.Printf("+ %s\n", jsonStr)
     }
-    fmt.Println("===[end: detail for b]")
+    fmt.Println("===[end:   detail for b]")
 
     return isSame, nil
 }
 
 func CreateNewHostGroup(aZAPI, bZAPI *ZabbixAPI) error {
-    log.Debug("start create new host group on new zabbix")
+    log.WithFields(log.Fields{
+        "func": "CreateNewHostGroup",
+        "step": "start",
+    }).Debug("start create new host group on new zabbix")
 
     aParams := make(map[string]interface{}, 0)
     aFilter := make(map[string]interface{}, 0)
@@ -117,7 +120,10 @@ func CreateNewHostGroup(aZAPI, bZAPI *ZabbixAPI) error {
             }
         }
         if hasExists {
-            log.Info(fmt.Sprintf("host group [%s] alread exists", aZHostGroup["name"]))
+            log.WithFields(log.Fields{
+                "func": "CreateNewHostGroup",
+                "step": "check.isExist",
+            }).Infof("host group [%s] alread exists", aZHostGroup["name"])
             continue
         }
         tParams["name"] = aZHostGroup["name"]
@@ -127,12 +133,18 @@ func CreateNewHostGroup(aZAPI, bZAPI *ZabbixAPI) error {
         }
     }
 
-    log.Debug("finish create new host group on new zabbix")
+    log.WithFields(log.Fields{
+        "func": "CreateNewHostGroup",
+        "step": "finish",
+    }).Debug("finish create new host group on new zabbix")
     return nil
 }
 
 func CleanNewTemplate(bZAPI *ZabbixAPI, bZDB *ZabbixDB) error {
-    log.Debug("start clean all template on new zabbix")
+    log.WithFields(log.Fields{
+        "func": "CleanNewTemplate",
+        "step": "start",
+    }).Debug("start clean all template on new zabbix")
 
     bTemplateList, err := bZDB.GetTemplateList()
     if err != nil {
@@ -160,12 +172,18 @@ func CleanNewTemplate(bZAPI *ZabbixAPI, bZDB *ZabbixDB) error {
         time.Sleep(2*time.Second)
     }
 
-    log.Debug("finish clean all template on new zabbix")
+    log.WithFields(log.Fields{
+        "func": "CleanNewTemplate",
+        "step": "finish",
+    }).Debug("finish clean all template on new zabbix")
     return nil
 }
 
 func CreateNewTemplate(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI) error {
-    log.Debug("start create new template on new zabbix")
+    log.WithFields(log.Fields{
+        "func": "CreateNewTemplate",
+        "step": "start",
+    }).Debug("start create new template on new zabbix")
 
     aTemplateList, err := aZDB.GetTemplateList()
     if err != nil {
@@ -191,7 +209,10 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI) error
         aParams["format"] = "xml"
         aTemplateExport, err := aZAPI.Configuration("export", aParams)
         if err != nil {
-            log.Error(fmt.Sprintf("try to export first template [%d] is failed", tTemplateList[0]))
+            log.WithFields(log.Fields{
+                "func": "CreateNewTemplate",
+                "step": "export",
+            }).Errorf("try to export first template [%d] is failed", tTemplateList[0])
             return err
         }
 
@@ -266,22 +287,34 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI) error
         bParams["source"] = aTemplateExport
         res, err := bZAPI.Configuration("import", bParams)
         if err != nil {
-            log.Error(fmt.Sprintf("try to import first template [%d] is failed", tTemplateList[0]))
+            log.WithFields(log.Fields{
+                "func": "CreateNewTemplate",
+                "step": "import",
+            }).Errorf("try to import first template [%d] is failed", tTemplateList[0])
             return err
         }
         if res.(bool) != true {
-            log.Error(fmt.Sprintf("try to import first template [%d] is failed", tTemplateList[0]))
+            log.WithFields(log.Fields{
+                "func": "CreateNewTemplate",
+                "step": "import",
+            }).Errorf("try to import first template [%d] is failed", tTemplateList[0])
             return errors.New("result of import template task is false")
         }
         time.Sleep(2*time.Second)
     }
 
-    log.Debug("finish creat new template on new zabbix")
+    log.WithFields(log.Fields{
+        "func": "CreateNewTemplate",
+        "step": "finish",
+    }).Debug("finish creat new template on new zabbix")
     return nil
 }
 
 func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup string, hostIdBegin int) error {
-    log.Debug("start create new host on new zabbix")
+    log.WithFields(log.Fields{
+        "func": "CreateNewHost",
+        "step": "start",
+    }).Debug("start create new host on new zabbix")
 
     aHostList, err := aZDB.GetHostList(hostgroup, hostIdBegin)
     if err != nil {
@@ -308,9 +341,15 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
         aHostExport, err := aZAPI.Configuration("export", aParams)
         if err != nil {
             if len(tHostList) > 0{
-                log.Error(fmt.Sprintf("try to export first host [%d] is failed", tHostList[0]))
+                log.WithFields(log.Fields{
+                    "func": "CreateNewHost",
+                    "step": "export",
+                }).Errorf("try to export first host [%d] is failed", tHostList[0])
             } else {
-                log.Error(fmt.Sprintf("UNKNOWN"))
+                log.WithFields(log.Fields{
+                    "func": "CreateNewHost",
+                    "step": "export",
+                }).Error("UNKNOWN")
             }
             return err
         }
@@ -386,22 +425,35 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
         bParams["source"] = aHostExport
         res, err := bZAPI.Configuration("import", bParams)
         if err != nil {
-            log.Error(fmt.Sprintf("try to import first host [%d] is failed", tHostList[0]))
+            log.WithFields(log.Fields{
+                "func": "CreateNewHost",
+                "step": "import",
+            }).Errorf("try to import first host [%d] is failed", tHostList[0])
             return err
         }
         if res.(bool) != true {
-            log.Error(fmt.Sprintf("try to import first host [%d] is failed", tHostList[0]))
+            log.WithFields(log.Fields{
+                "func": "CreateNewHost",
+                "step": "import",
+            }).Errorf("try to import first host [%d] is failed", tHostList[0])
             return errors.New("result of import host task is false")
         }
         time.Sleep(2*time.Second)
     }
 
-    log.Debug("finish creat new host on new zabbix")
+    log.WithFields(log.Fields{
+        "func": "CreateNewHost",
+        "step": "finish",
+    }).Debug("start create new host on new zabbix")
     return nil
 }
 
 func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int) error {
-    log.Debug("start sync old history to new zabbix")
+    log.WithFields(log.Fields{
+        "func": "SyncHistory",
+        "step": "start",
+    }).Debug("start sync old history to new zabbix")
+
     hMapList, err := aZDB.GetHostMapList(hostgroup, hostIdBegin)
     if err != nil {
         return err
@@ -413,16 +465,27 @@ func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin i
                 if err != nil {
                     return err
                 }
-                log.Debug(fmt.Sprintf("done sync history table [%s]: host [%s] hostid [%d]", hTable, host, hostid))
+                log.WithFields(log.Fields{
+                    "func": "CreateNewHost",
+                    "step": "sync.done",
+                }).Debugf("done sync history table [%s]: host [%s] hostid [%d]", hTable, host, hostid)
             }
         }
     }
 
-    log.Debug("finish sync old history to new zabbix")
+    log.WithFields(log.Fields{
+        "func": "SyncHistory",
+        "step": "finish",
+    }).Debug("start sync old history to new zabbix")
     return nil
 }
 
 func SyncTrends(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int) error {
+    log.WithFields(log.Fields{
+        "func": "SyncTrends",
+        "step": "start",
+    }).Debug("start sync old trends to new zabbix")
+
     hMapList, err := aZDB.GetHostMapList(hostgroup, hostIdBegin)
     if err != nil {
         return err
@@ -434,10 +497,18 @@ func SyncTrends(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin in
                 if err != nil {
                     return err
                 }
-                log.Debug(fmt.Sprintf("done sync trends table [%s]: host [%s] hostid [%d]", sTable, host, hostid))
+                log.WithFields(log.Fields{
+                    "func": "SyncTrends",
+                    "step": "sync.done",
+                }).Debugf("done sync trends table [%s]: host [%s] hostid [%d]", sTable, host, hostid)
             }
         }
     }
+
+    log.WithFields(log.Fields{
+        "func": "SyncTrends",
+        "step": "finish",
+    }).Debug("finish sync old trends to new zabbix")
     return nil
 }
 
@@ -558,6 +629,7 @@ func CheckItemGroup(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, error) {
     isSame := true
     for _, host := range aHostList {
         var innerIsSame bool
+        fmt.Printf("check for host [%s] ...\n", host)
         innerIsSame, err = CheckItem(aZAPI, bZAPI, host)
         if err != nil {
             return false, err
@@ -656,5 +728,5 @@ func CheckValuemap(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
 }
 
 func CheckMap(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
-    return false, errors.New("now support for map check, please manually")
+    return false, errors.New("not support for map check, please manually")
 }

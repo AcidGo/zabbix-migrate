@@ -234,15 +234,17 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
                 var _clock int
                 var _ns int
                 aRows.Scan(&_itemid, &_clock, &value, &_ns)
-                res, err := bZDB.DB.Exec(
+                _, err := bZDB.DB.Exec(
                     sql2, 
                     mappingI[itemid], _clock, value, _ns,
                 )
                 if err != nil {
-                    log.Error(fmt.Sprintf("try to sync hostid [%d] itemid [%d] is failed", aHostid, itemid))
+                    log.WithFields(log.Fields{
+                        "func": "ZabbixDB.SyncHistoryToOne",
+                        "step": "insert",
+                    }).Errorf("try to sync hostid [%d] itemid [%d] is failed", aHostid, itemid)
                     return err
                 }
-                log.Debug(res.RowsAffected())
             }
         }
     } else {
@@ -276,7 +278,10 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
                     mappingI[itemid], _clock, _timestamp, _source, _severity, value, _logeventid, _ns,
                 )
                 if err != nil {
-                    log.Error(fmt.Sprintf("try to sync %s hostid [%d] itemid [%d] is failed", hTable, aHostid, itemid))
+                    log.WithFields(log.Fields{
+                        "func": "ZabbixDB.SyncHistoryToOne",
+                        "step": "insert",
+                    }).Errorf("try to sync %s hostid [%d] itemid [%d] is failed", hTable, aHostid, itemid)
                     return err
                 }
             }
@@ -338,16 +343,18 @@ func (db *ZabbixDB) SyncTrendsToOne(bZDB *ZabbixDB, tTable string, hostid int, h
             var _value_avg string
             var _value_max string
             aRows.Scan(&_itemid, &_clock, &_num, &_value_min, &_value_avg, &_value_max)
-            res, err := bZDB.DB.Exec(
+            _, err := bZDB.DB.Exec(
                 sql2, 
                 mappingI[itemid], _clock, _num, _value_min, _value_avg, _value_max,
                 _num, _value_min, _value_avg, _value_max,
             )
             if err != nil {
-                log.Error(fmt.Sprintf("try to sync %s hostid [%d] itemid [%d] is failed", tTable, aHostid, itemid))
+                log.WithFields(log.Fields{
+                    "func": "ZabbixDB.SyncTrendsToOne",
+                    "step": "insert",
+                }).Errorf("try to sync %s hostid [%d] itemid [%d] is failed", tTable, aHostid, itemid)
                 return err
             }
-            log.Debug(res.RowsAffected())
         }
     }
     return nil
