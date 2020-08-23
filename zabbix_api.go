@@ -53,6 +53,18 @@ type ZabbixAPIError struct {
 
 type ZUnitMap map[string]interface{}
 
+func FilterZUM(mList []ZUnitMap, filter []string) error {
+    for mIdx, m := range mList {
+        for _, fKey := range filter {
+            if _, ok := m[fKey]; !ok {
+                continue
+            }
+            delete(mList[mIdx], fKey)
+        }
+    }
+    return nil
+}
+
 func NewZabbixAPI(url, user, password string) (*ZabbixAPI, error) {
     return &ZabbixAPI{
         url: url,

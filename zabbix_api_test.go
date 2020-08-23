@@ -114,3 +114,24 @@ func TestConfiguration(t *testing.T) {
     }
     log.Println(res)
 }
+
+func TestFilterMapList(t *testing.T) {
+    a := []ZUnitMap {
+        map[string]interface{} {
+            "a": "1",
+            "b": "2",
+        },
+        map[string]interface{} {
+            "c": "3",
+            "d": "4",
+        },
+    }
+    filter := []string {"a"}
+
+    err := FilterZUM(a, filter)
+    if err != nil {
+        log.Fatal(err)
+
+    }
+    log.Println(a)
+}

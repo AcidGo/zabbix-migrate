@@ -460,6 +460,9 @@ func CheckHostGroup(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
         return false, err
     }
 
+    mFilter := []string {"groupid", "internal"}
+    FilterZUM(aZHostGroupList, mFilter)
+    FilterZUM(bZHostGroupList, mFilter)
     isSame, err := DiffUnitList(aZHostGroupList, bZHostGroupList, true)
     if err != nil {
         return false, err
@@ -489,6 +492,9 @@ func CheckHost(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, error) {
         return false, err
     }
 
+    mFilter := []string {"groups", "hostid"}
+    FilterZUM(aZHostList, mFilter)
+    FilterZUM(bZHostList, mFilter)
     isSame, err := DiffUnitList(aZHostList, bZHostList, true)
     if err != nil {
         return false, err
@@ -516,6 +522,9 @@ func CheckItem(aZAPI, bZAPI *ZabbixAPI, host string) (bool, error) {
         return false, err
     }
 
+    mFilter := []string {"itemid"}
+    FilterZUM(aZItemList, mFilter)
+    FilterZUM(bZItemList, mFilter)
     isSame, err := DiffUnitList(aZItemList, bZItemList, true)
     if err != nil {
         return false, err
@@ -635,6 +644,9 @@ func CheckValuemap(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
         return false, err
     }
 
+    mFilter := []string {"valuemapid"}
+    FilterZUM(aValuemapList, mFilter)
+    FilterZUM(bValuemapList, mFilter)
     isSame, err := DiffUnitList(aValuemapList, bValuemapList, true)
     if err != nil {
         return false, err
