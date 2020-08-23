@@ -161,3 +161,10 @@ func TestDiffUnitList(t *testing.T) {
     log.Println(res)
     log.Println(err)
 }
+
+func TestSortTemplateDepend(t *testing.T) {
+    zapiA, err := GetAPIA()
+    res, err := SortTemplateDepend(zapiA)
+    log.Println(err)
+    log.Println(res)
+}

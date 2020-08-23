@@ -148,12 +148,12 @@ func CreateNewValuemap(aZAPI ,bZAPI *ZabbixAPI) error {
 
     aParams := make(map[string]interface{}, 0)
     aParams["output"] = "extend"
-    aValuemapZList, err := aZAPI.Valuemap("get", aParams)
+    aZValuemapList, err := aZAPI.Valuemap("get", aParams)
     if err != nil {
         return err
     }
     aValuemapList := make([]string, 0)
-    for _, zUM := range aValuemapZList {
+    for _, zUM := range aZValuemapList {
         if valI, ok := zUM["valuemapid"]; ok {
             if valS, _ok := valI.(string); _ok {
                 aValuemapList = append(aValuemapList, valS)
@@ -180,7 +180,7 @@ func CreateNewValuemap(aZAPI ,bZAPI *ZabbixAPI) error {
             log.WithFields(log.Fields{
                 "func": "CreateNewValuemap",
                 "step": "export",
-            }).Errorf("try to export first valuemap [%d] is failed", tValuemapList[0])
+            }).Errorf("try to export first valuemap [%s] is failed", tValuemapList[0])
             return err
         }
 
@@ -258,14 +258,14 @@ func CreateNewValuemap(aZAPI ,bZAPI *ZabbixAPI) error {
             log.WithFields(log.Fields{
                 "func": "CreateNewValuemap",
                 "step": "import",
-            }).Errorf("try to import first valuemap [%d] is failed", tValuemapList[0])
+            }).Errorf("try to import first valuemap [%s] is failed", tValuemapList[0])
             return err
         }
         if res.(bool) != true {
             log.WithFields(log.Fields{
                 "func": "CreateNewValuemap",
                 "step": "import",
-            }).Errorf("try to import first valuemap [%d] is failed", tValuemapList[0])
+            }).Errorf("try to import first valuemap [%s] is failed", tValuemapList[0])
             return errors.New("result of import valuemap task is false")
         }
         time.Sleep(2*time.Second)
@@ -278,9 +278,43 @@ func CreateNewValuemap(aZAPI ,bZAPI *ZabbixAPI) error {
     return nil
 }
 
-// func SortTemplateDepend(aZAPI *ZabbixAPI, temlateList []string) ([]string, error) {
-    
-// }
+func SortTemplateDepend(aZAPI *ZabbixAPI) ([]string, error) {
+    // res := make([]string, 0)
+    aParams := make(map[string]interface{}, 0)
+    aFilter := make(map[string]interface{}, 0)
+    aParams["output"] = "templateid"
+    aParams["filter"] = aFilter
+    aParams["selectParentTemplates"] = []string{"templateid"}
+    aZMulTemplateList, err := aZAPI.Template("get", aParams)
+    if err != nil {
+        return []string{}, err
+    }
+    fmt.Println(aZMulTemplateList)
+
+    tDependMap := make(map[string][]string, 0)
+    for _, zUM := range aZMulTemplateList {
+        if templateidI, ok := zUM["templateid"]; ok {
+            if templateidS, ok := templateidI.(string); ok {
+                if parentTemplatesI, ok := zUM["parentTemplates"]; ok {
+                    if parentTemplatesM, ok := parentTemplatesI.([]interface{}); ok {
+                        fmt.Println("ffffffffff")
+                        fmt.Println(templateidS)
+                        fmt.Println(parentTemplatesM)
+                        // for _, valM := range parentTemplatesM {
+                        //     for _, val := range valM {
+                        //         tDependMap[templateidS] = append(tDependMap[templateidS], val)
+                        //     }
+                        // }
+                    }
+                }
+            }
+        }
+    }
+
+    fmt.Println(tDependMap)
+
+    return []string{"1"}, nil
+}
 
 func CleanNewTemplate(bZAPI *ZabbixAPI, bZDB *ZabbixDB) error {
     log.WithFields(log.Fields{
