@@ -497,7 +497,7 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, bZAPI *ZabbixAPI) error {
         return nil
     }
 
-    step := 100000
+    step := 1000
     stepN := int(len(aTemplateList)/step)
     for i:=0; i<=stepN; i++ {
         var tTemplateList []int
@@ -521,6 +521,11 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, bZAPI *ZabbixAPI) error {
             }
             return err
         }
+
+        log.WithFields(log.Fields{
+            "func": "CreateNewTemplate",
+            "step": "export",
+        }).Infof("done export %d templates for import", len(tTemplateList))
 
         bParams := make(map[string]interface{}, 0)
         bRules := make(map[string]interface{}, 0)
@@ -610,6 +615,12 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, bZAPI *ZabbixAPI) error {
             }
             return errors.New("result of import template task is false")
         }
+
+        log.WithFields(log.Fields{
+            "func": "CreateNewTemplate",
+            "step": "import",
+        }).Infof("done import %d templates for import", len(tTemplateList))
+
         time.Sleep(2*time.Second)
     }
 
@@ -643,6 +654,14 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
         } else {
             tHostList = aHostList[step*i:step*(i+1)]
         }
+
+        if len(tHostList) > 0 {
+            log.WithFields(log.Fields{
+                "func": "CreateNewHost",
+                "step": "export",
+            }).Infof("try to export first host [%d] - [%d]", tHostList[0], tHostList[len(tHostList)-1])
+        }
+
         aParams := make(map[string]interface{}, 0)
         aOptions := make(map[string]interface{}, 0)
         aOptions["hosts"] = tHostList
@@ -650,7 +669,7 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
         aParams["format"] = "xml"
         aHostExport, err := aZAPI.Configuration("export", aParams)
         if err != nil {
-            if len(tHostList) > 0{
+            if len(tHostList) > 0 {
                 log.WithFields(log.Fields{
                     "func": "CreateNewHost",
                     "step": "export",
@@ -662,6 +681,13 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
                 }).Error("UNKNOWN")
             }
             return err
+        }
+
+        if len(tHostList) > 0 {
+            log.WithFields(log.Fields{
+                "func": "CreateNewHost",
+                "step": "export",
+            }).Errorf("done export first host [%d] - [%d]", tHostList[0], tHostList[len(tHostList)-1])
         }
 
         bParams := make(map[string]interface{}, 0)
@@ -741,12 +767,22 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
             }).Errorf("try to import first host [%d] is failed", tHostList[0])
             return err
         }
-        if res.(bool) != true {
+        if _res, ok := res.(bool); ok && !_res {
             log.WithFields(log.Fields{
                 "func": "CreateNewHost",
                 "step": "import",
             }).Errorf("try to import first host [%d] is failed", tHostList[0])
             return errors.New("result of import host task is false")
+        } else if !ok {
+            log.WithFields(log.Fields{
+                "func": "CreateNewHost",
+                "step": "import",
+            }).Errorf("try to import first host [%d] is failed", tHostList[0])
+            if s, _ok := res.(string); _ok {
+                return errors.New(s)
+            } else {
+                return errors.New(fmt.Sprintf("%v", res))
+            }
         }
         time.Sleep(2*time.Second)
     }
