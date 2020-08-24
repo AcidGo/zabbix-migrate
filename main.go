@@ -274,7 +274,7 @@ func main() {
                     "step": "migrate.template",
                 }).Fatal("clean template on new zabbix failed")
             }
-            err = CreateNewTemplate(aZAPI, aZDB, bZAPI)
+            err = CreateNewTemplate(aZAPI, bZAPI)
         case "host":
             err = CreateNewHost(aZAPI, aZDB, bZAPI, fHostGroup, fHostIdBegin)
         }

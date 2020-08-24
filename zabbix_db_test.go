@@ -12,7 +12,7 @@ func GetDBConnectA() (*ZabbixDB, error) {
 
 func GetAPIA() (*ZabbixAPI, error) {
     api, _ := NewZabbixAPI(
-        "http://192.168.52.61/zabbix/api_jsonrpc.php",
+        "http://192.168.66.50/api_jsonrpc.php",
         "Admin",
         "zabbix",
     )
@@ -62,9 +62,8 @@ func TestCleanNewTemplate(t *testing.T) {
 func TestCreateNewTemplate(t *testing.T) {
     zapiA, _ := GetAPIA()
     zapiB, _ := GetAPIB()
-    zdbA, _ := GetDBConnectA()
 
-    err := CreateNewTemplate(zapiA, zdbA, zapiB)
+    err := CreateNewTemplate(zapiA, zapiB)
     if err != nil {
         log.Println(err)
     }

@@ -285,3 +285,22 @@ func (api *ZabbixAPI) Trigger(method string, params interface{}) ([]ZUnitMap, er
 
     return ret, nil
 }
+
+func (api *ZabbixAPI) Hostprototype(method string, params interface{}) ([]ZUnitMap, error) {
+    rsp, err := api.Request("hostprototype."+method, params)
+    if err != nil {
+        return nil, err
+    }
+    if rsp.Error.Code != 0 {
+        return nil, errors.New(rsp.Error.Data)
+    }
+
+    res, err := json.Marshal(rsp.Result)
+    var ret []ZUnitMap
+    err = json.Unmarshal(res, &ret)
+    if err != nil {
+        return nil, err
+    }
+
+    return ret, nil
+}

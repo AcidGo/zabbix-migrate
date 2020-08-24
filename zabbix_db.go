@@ -4,6 +4,7 @@ import (
     "database/sql"
     "errors"
     "fmt"
+    "time"
 
     log "github.com/sirupsen/logrus"
     _ "github.com/go-sql-driver/mysql"
@@ -209,11 +210,18 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
     }
     mappingI, err := bZDB.MappingItemId(aHost, aItemMap)
     if err != nil {
-        return err
+        switch {
+        case err == sql.ErrNoRows:
+        case err != nil:
+            return err
+        }
     }
 
+    endClock := time.Now().Unix() - 3600
+    limitOffset := 1000
+
     if hTable != "history_log" {
-        sql1 := fmt.Sprintf("select * from %s where itemid = ?", hTable)
+        sql1 := fmt.Sprintf("select * from %s where itemid = ? and clock < ? limit ? offset ?", hTable)
         var sql2 string
         switch bZDB.DBDriver {
         case "mysql":
@@ -223,32 +231,56 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
         }
 
         for _, itemid := range aItemList {
-            aRows, err := db.DB.Query(sql1, itemid)
-            if err != nil {
-                return err
-            }
-            defer aRows.Close()
-
-            for aRows.Next() {
-                var _itemid int
-                var _clock int
-                var _ns int
-                aRows.Scan(&_itemid, &_clock, &value, &_ns)
-                _, err := bZDB.DB.Exec(
-                    sql2, 
-                    mappingI[itemid], _clock, value, _ns,
+            limitStart := 0
+            for {
+                log.WithFields(log.Fields{
+                    "func": "ZabbixDB.SyncHistoryToOne",
+                    "step": "select.sql",
+                }).Tracef(
+                    "prepare sql: itemid [%d] endClock [%d] limitStart [%d] limitOffset [%d]", 
+                    itemid,
+                    endClock,
+                    limitStart,
+                    limitOffset,
                 )
+
+                aRows, err := db.DB.Query(sql1, itemid, endClock, limitStart, limitOffset)
                 if err != nil {
-                    log.WithFields(log.Fields{
-                        "func": "ZabbixDB.SyncHistoryToOne",
-                        "step": "insert",
-                    }).Errorf("try to sync hostid [%d] itemid [%d] is failed", aHostid, itemid)
                     return err
                 }
+
+                isEmpty := true
+                for aRows.Next() {
+                    isEmpty = false
+                    var _itemid int
+                    var _clock int
+                    var _ns int
+                    aRows.Scan(&_itemid, &_clock, &value, &_ns)
+                    _, err := bZDB.DB.Exec(
+                        sql2, 
+                        mappingI[itemid], _clock, value, _ns,
+                    )
+                    if err != nil {
+                        log.WithFields(log.Fields{
+                            "func": "ZabbixDB.SyncHistoryToOne",
+                            "step": "insert",
+                        }).Errorf("try to sync hostid [%d] itemid [%d] is failed", aHostid, itemid)
+                        break
+                    }
+                }
+
+                aRows.Close()
+                if err != nil {
+                    return err
+                }
+                if isEmpty {
+                    break
+                }
+                limitStart += limitOffset
             }
         }
     } else {
-        sql1 := fmt.Sprintf("select * from %s where itemid = ?", hTable)
+        sql1 := fmt.Sprintf("select * from %s where itemid = ? and clock < ? limit ? offset ?", hTable)
         var sql2 string
         switch bZDB.DBDriver {
         case "mysql":
@@ -258,32 +290,58 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
         }
 
         for _, itemid := range aItemList {
-            aRows, err := db.DB.Query(sql1, itemid)
-            if err != nil {
-                return err
-            }
-            defer aRows.Close()
-
-            for aRows.Next() {
-                var _itemid int
-                var _clock int
-                var _timestamp int
-                var _source string
-                var _severity int
-                var _logeventid int
-                var _ns int
-                aRows.Scan(&_itemid, &_clock, &_timestamp, &_source, &_severity, &value, &_logeventid, &_ns)
-                _, err =bZDB.DB.Exec(
-                    sql2, 
-                    mappingI[itemid], _clock, _timestamp, _source, _severity, value, _logeventid, _ns,
+            limitStart := 0
+            for {
+                log.WithFields(log.Fields{
+                    "func": "ZabbixDB.SyncHistoryToOne",
+                    "step": "select.sql",
+                }).Tracef(
+                    "prepare sql: itemid [%d] endClock [%d] limitStart [%d] limitOffset [%d]", 
+                    itemid,
+                    endClock,
+                    limitStart,
+                    limitOffset,
                 )
+
+                aRows, err := db.DB.Query(sql1, itemid, endClock, limitStart, limitOffset)
                 if err != nil {
-                    log.WithFields(log.Fields{
-                        "func": "ZabbixDB.SyncHistoryToOne",
-                        "step": "insert",
-                    }).Errorf("try to sync %s hostid [%d] itemid [%d] is failed", hTable, aHostid, itemid)
                     return err
                 }
+
+                isEmpty := true
+                for aRows.Next() {
+                    isEmpty = false
+                    var _itemid int
+                    var _clock int
+                    var _timestamp int
+                    var _source string
+                    var _severity int
+                    var _logeventid int
+                    var _ns int
+                    aRows.Scan(&_itemid, &_clock, &_timestamp, &_source, &_severity, &value, &_logeventid, &_ns)
+                    _, err =bZDB.DB.Exec(
+                        sql2, 
+                        mappingI[itemid], _clock, _timestamp, _source, _severity, value, _logeventid, _ns,
+                    )
+                    if err != nil {
+                        log.WithFields(log.Fields{
+                            "func": "ZabbixDB.SyncHistoryToOne",
+                            "step": "insert",
+                        }).Errorf("try to sync %s hostid [%d] itemid [%d] is failed", hTable, aHostid, itemid)
+                        break
+                    }
+                }
+
+                aRows.Close()
+                if err != nil {
+                    return err
+                }
+
+                if isEmpty {
+                    break
+                }
+
+                limitStart += limitOffset
             }
         }
     }
@@ -305,7 +363,11 @@ func (db *ZabbixDB) SyncTrendsToOne(bZDB *ZabbixDB, tTable string, hostid int, h
     }
     mappingI, err := bZDB.MappingItemId(aHost, aItemMap)
     if err != nil {
-        return err
+        switch {
+        case err == sql.ErrNoRows:
+        case err != nil:
+            return err
+        }
     }
 
     sql1 := fmt.Sprintf("select * from %s where itemid = ?", tTable)

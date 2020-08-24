@@ -279,41 +279,166 @@ func CreateNewValuemap(aZAPI ,bZAPI *ZabbixAPI) error {
 }
 
 func SortTemplateDepend(aZAPI *ZabbixAPI) ([]string, error) {
-    // res := make([]string, 0)
     aParams := make(map[string]interface{}, 0)
     aFilter := make(map[string]interface{}, 0)
     aParams["output"] = "templateid"
     aParams["filter"] = aFilter
     aParams["selectParentTemplates"] = []string{"templateid"}
+    // aParams["selectDiscoveries"] = []string{"templateid"}
     aZMulTemplateList, err := aZAPI.Template("get", aParams)
     if err != nil {
         return []string{}, err
     }
-    fmt.Println(aZMulTemplateList)
 
     tDependMap := make(map[string][]string, 0)
-    for _, zUM := range aZMulTemplateList {
-        if templateidI, ok := zUM["templateid"]; ok {
-            if templateidS, ok := templateidI.(string); ok {
-                if parentTemplatesI, ok := zUM["parentTemplates"]; ok {
-                    if parentTemplatesM, ok := parentTemplatesI.([]interface{}); ok {
-                        fmt.Println("ffffffffff")
-                        fmt.Println(templateidS)
-                        fmt.Println(parentTemplatesM)
-                        // for _, valM := range parentTemplatesM {
-                        //     for _, val := range valM {
-                        //         tDependMap[templateidS] = append(tDependMap[templateidS], val)
-                        //     }
-                        // }
+    tByte, err := json.Marshal(aZMulTemplateList)
+    if err != nil {
+        return []string{}, err
+    }
+    var ret []map[string]interface{}
+    err = json.Unmarshal(tByte, &ret)
+    if err != nil {
+        return []string{}, err
+    }
+
+    for _, valMI := range ret {
+        tidI, ok := valMI["templateid"]
+        if ok {
+            tidS, ok := tidI.(string)
+            if !ok {
+                return []string{}, errors.New("can not convert templateid to string")
+            }
+            tDependMap[tidS] = []string{}
+
+            for key, valI := range valMI {
+                if key == "templateid" {
+                    continue
+                }
+                _tByte, err := json.Marshal(valI)
+                if err != nil {
+                    return []string{}, err
+                }
+                var _ret []map[string]string
+                err = json.Unmarshal(_tByte, &_ret)
+                if err != nil {
+                    return []string{}, err
+                }
+                for _, m := range _ret {
+                    if v, ok := m["templateid"]; ok && v != "0" && !itemFind(tDependMap[tidS], v) {
+                        tDependMap[tidS] = append(tDependMap[tidS], v)
                     }
                 }
+            }
+
+        } else {
+            return []string{}, errors.New("not found templateid in the json")
+        }
+    }
+
+    aParams = make(map[string]interface{}, 0)
+    aFilter = make(map[string]interface{}, 0)
+    aParams["output"] = "extend"
+    aParams["filter"] = aFilter
+    aParams["selectTemplates"] = []string{"templateid"}
+    aZMulHPrototypeList, err := aZAPI.Hostprototype("get", aParams)
+    if err != nil {
+        return []string{}, err
+    }
+
+    tHostDependList := make([]string, 0)
+    tByte, err = json.Marshal(aZMulHPrototypeList)
+    if err != nil {
+        return []string{}, err
+    }
+    err = json.Unmarshal(tByte, &ret)
+    if err != nil {
+        return []string{}, err
+    }
+
+    for _, valMI := range ret {
+        tsI, ok := valMI["templates"]
+        if !ok {
+            continue
+        }
+        _tByte, err := json.Marshal(tsI)
+        if err != nil {
+            return []string{}, err
+        }
+        var _ret []map[string]string
+        err = json.Unmarshal(_tByte, &_ret)
+        if err != nil {
+            return []string{}, err
+        }
+        for _, m := range _ret {
+            if val, ok := m["templateid"]; ok {
+                tHostDependList = append(tHostDependList, val)
             }
         }
     }
 
-    fmt.Println(tDependMap)
+    oldDM := make(map[string][]string, 0)
+    for _, v := range tHostDependList {
+        if tL, ok := tDependMap[v]; ok {
+            oldDM[v] = tL
+        }
+    }
 
-    return []string{"1"}, nil
+    res := make([]string, 0)
+    count := len(tDependMap)
+    for {
+        for key, val := range tDependMap {
+            tDependMap[key] = DevideDSlice(val, res)
+            if len(val) == 0 {
+                delete(tDependMap, key)
+                res = append(res, key)
+                continue
+            }
+        }
+        if len(res) == count {
+            break
+        }
+    }
+
+    for oT, oTL := range oldDM {
+        minI := -1
+        nowI := -1
+        for _, oTV := range oTL {
+            for idx, val := range res {
+                if val == oTV {
+                    if idx > minI {
+                        minI = idx
+                    }
+                }
+                if val == oT {
+                    nowI = idx
+                }
+            }
+        }
+        if minI > -1 && nowI > -1 {
+            res[minI+1], res[nowI] = oT, res[minI+1]
+        }
+    }
+
+    return res, nil
+}
+
+func DevideDSlice(aSlice, bSlice []string) []string {
+    res := make([]string, 0)
+    for _, aVal := range aSlice {
+        if ok := itemFind(bSlice, aVal); !ok {
+            res = append(res, aVal)
+        }
+    }
+    return res
+}
+
+func itemFind(slice []string, val string) bool {
+    for _, item := range slice {
+        if item == val {
+            return true
+        }
+    }
+    return false
 }
 
 func CleanNewTemplate(bZAPI *ZabbixAPI, bZDB *ZabbixDB) error {
@@ -357,13 +482,14 @@ func CleanNewTemplate(bZAPI *ZabbixAPI, bZDB *ZabbixDB) error {
     return nil
 }
 
-func CreateNewTemplate(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI) error {
+func CreateNewTemplate(aZAPI *ZabbixAPI, bZAPI *ZabbixAPI) error {
     log.WithFields(log.Fields{
         "func": "CreateNewTemplate",
         "step": "start",
     }).Debug("start create new template on new zabbix")
 
     aTemplateList, err := aZDB.GetTemplateList()
+    // aTemplateList, err := SortTemplateDepend(aZAPI)
     if err != nil {
         return err
     }
@@ -371,7 +497,7 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI) error
         return nil
     }
 
-    step := 10
+    step := 100000
     stepN := int(len(aTemplateList)/step)
     for i:=0; i<=stepN; i++ {
         var tTemplateList []int
@@ -387,10 +513,12 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI) error
         aParams["format"] = "xml"
         aTemplateExport, err := aZAPI.Configuration("export", aParams)
         if err != nil {
-            log.WithFields(log.Fields{
-                "func": "CreateNewTemplate",
-                "step": "export",
-            }).Errorf("try to export first template [%d] is failed", tTemplateList[0])
+            if len(tTemplateList) > 0 {
+                log.WithFields(log.Fields{
+                    "func": "CreateNewTemplate",
+                    "step": "export",
+                }).Errorf("try to export first template [%s] is failed", tTemplateList[0])
+            }
             return err
         }
 
@@ -465,17 +593,21 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI) error
         bParams["source"] = aTemplateExport
         res, err := bZAPI.Configuration("import", bParams)
         if err != nil {
-            log.WithFields(log.Fields{
-                "func": "CreateNewTemplate",
-                "step": "import",
-            }).Errorf("try to import first template [%d] is failed", tTemplateList[0])
+            if len(tTemplateList) > 1 {
+                log.WithFields(log.Fields{
+                    "func": "CreateNewTemplate",
+                    "step": "import",
+                }).Errorf("try to import first template [%s] is failed", tTemplateList[0])
+            }
             return err
         }
         if res.(bool) != true {
-            log.WithFields(log.Fields{
-                "func": "CreateNewTemplate",
-                "step": "import",
-            }).Errorf("try to import first template [%d] is failed", tTemplateList[0])
+            if len(tTemplateList) > 0 {
+                log.WithFields(log.Fields{
+                    "func": "CreateNewTemplate",
+                    "step": "import",
+                }).Errorf("try to import first template [%s] is failed", tTemplateList[0])
+            }
             return errors.New("result of import template task is false")
         }
         time.Sleep(2*time.Second)
