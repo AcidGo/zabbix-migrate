@@ -81,6 +81,7 @@ var (
 
     fHostGroup      string
     fHostIdBegin    int
+    fIdOffset         uint
 
     fLogLevel       uint
 )
@@ -149,6 +150,7 @@ func initFlag() error {
 
     flag.StringVar(&fHostGroup, "g", "", "input params about hostgroup")
     flag.IntVar(&fHostIdBegin, "i", 0, "input params about host begin id")
+    flag.UintVar(&fIdOffset, "o", 50, "input params about id offset")
 
     flag.UintVar(&fLogLevel, "l", 4, "set log level number, 0 is panic ... 6 is trace")
 
@@ -274,9 +276,9 @@ func main() {
                     "step": "migrate.template",
                 }).Fatal("clean template on new zabbix failed")
             }
-            err = CreateNewTemplate(aZAPI, bZAPI)
+            err = CreateNewTemplate(aZAPI, aZDB, bZAPI)
         case "host":
-            err = CreateNewHost(aZAPI, aZDB, bZAPI, fHostGroup, fHostIdBegin)
+            err = CreateNewHost(aZAPI, aZDB, bZAPI, fHostGroup, fHostIdBegin, fIdOffset)
         }
         if err != nil {
             log.WithFields(log.Fields{

@@ -6,6 +6,7 @@ import (
     "errors"
     "io"
     "net/http"
+    "time"
 
     log "github.com/sirupsen/logrus"
 )
@@ -73,7 +74,9 @@ func NewZabbixAPI(url, user, password string) (*ZabbixAPI, error) {
         password: password,
         auth: "",
         id: JsonAuthID,
-        Client: &http.Client{},
+        Client: &http.Client{
+            Timeout: 150 * time.Second,
+        },
     }, nil
 }
 

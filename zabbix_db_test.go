@@ -59,15 +59,15 @@ func TestCleanNewTemplate(t *testing.T) {
     }
 }
 
-func TestCreateNewTemplate(t *testing.T) {
-    zapiA, _ := GetAPIA()
-    zapiB, _ := GetAPIB()
+// func TestCreateNewTemplate(t *testing.T) {
+//     zapiA, _ := GetAPIA()
+//     zapiB, _ := GetAPIB()
 
-    err := CreateNewTemplate(zapiA, zapiB)
-    if err != nil {
-        log.Println(err)
-    }
-}
+//     err := CreateNewTemplate(zapiA, zapiB)
+//     if err != nil {
+//         log.Println(err)
+//     }
+// }
 
 func TestCreateNewHost(t *testing.T) {
     zapiA, _ := GetAPIA()

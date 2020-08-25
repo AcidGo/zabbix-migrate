@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "errors"
     "fmt"
+    "strconv"
     "time"
     "reflect"
     log "github.com/sirupsen/logrus"
@@ -278,7 +279,7 @@ func CreateNewValuemap(aZAPI ,bZAPI *ZabbixAPI) error {
     return nil
 }
 
-func SortTemplateDepend(aZAPI *ZabbixAPI) ([]string, error) {
+func SortTemplateDepend(aZAPI *ZabbixAPI) ([]int, error) {
     aParams := make(map[string]interface{}, 0)
     aFilter := make(map[string]interface{}, 0)
     aParams["output"] = "templateid"
@@ -287,18 +288,18 @@ func SortTemplateDepend(aZAPI *ZabbixAPI) ([]string, error) {
     // aParams["selectDiscoveries"] = []string{"templateid"}
     aZMulTemplateList, err := aZAPI.Template("get", aParams)
     if err != nil {
-        return []string{}, err
+        return []int{}, err
     }
 
     tDependMap := make(map[string][]string, 0)
     tByte, err := json.Marshal(aZMulTemplateList)
     if err != nil {
-        return []string{}, err
+        return []int{}, err
     }
     var ret []map[string]interface{}
     err = json.Unmarshal(tByte, &ret)
     if err != nil {
-        return []string{}, err
+        return []int{}, err
     }
 
     for _, valMI := range ret {
@@ -306,7 +307,7 @@ func SortTemplateDepend(aZAPI *ZabbixAPI) ([]string, error) {
         if ok {
             tidS, ok := tidI.(string)
             if !ok {
-                return []string{}, errors.New("can not convert templateid to string")
+                return []int{}, errors.New("can not convert templateid to string")
             }
             tDependMap[tidS] = []string{}
 
@@ -316,12 +317,12 @@ func SortTemplateDepend(aZAPI *ZabbixAPI) ([]string, error) {
                 }
                 _tByte, err := json.Marshal(valI)
                 if err != nil {
-                    return []string{}, err
+                    return []int{}, err
                 }
                 var _ret []map[string]string
                 err = json.Unmarshal(_tByte, &_ret)
                 if err != nil {
-                    return []string{}, err
+                    return []int{}, err
                 }
                 for _, m := range _ret {
                     if v, ok := m["templateid"]; ok && v != "0" && !itemFind(tDependMap[tidS], v) {
@@ -331,7 +332,7 @@ func SortTemplateDepend(aZAPI *ZabbixAPI) ([]string, error) {
             }
 
         } else {
-            return []string{}, errors.New("not found templateid in the json")
+            return []int{}, errors.New("not found templateid in the json")
         }
     }
 
@@ -342,17 +343,17 @@ func SortTemplateDepend(aZAPI *ZabbixAPI) ([]string, error) {
     aParams["selectTemplates"] = []string{"templateid"}
     aZMulHPrototypeList, err := aZAPI.Hostprototype("get", aParams)
     if err != nil {
-        return []string{}, err
+        return []int{}, err
     }
 
     tHostDependList := make([]string, 0)
     tByte, err = json.Marshal(aZMulHPrototypeList)
     if err != nil {
-        return []string{}, err
+        return []int{}, err
     }
     err = json.Unmarshal(tByte, &ret)
     if err != nil {
-        return []string{}, err
+        return []int{}, err
     }
 
     for _, valMI := range ret {
@@ -362,12 +363,12 @@ func SortTemplateDepend(aZAPI *ZabbixAPI) ([]string, error) {
         }
         _tByte, err := json.Marshal(tsI)
         if err != nil {
-            return []string{}, err
+            return []int{}, err
         }
         var _ret []map[string]string
         err = json.Unmarshal(_tByte, &_ret)
         if err != nil {
-            return []string{}, err
+            return []int{}, err
         }
         for _, m := range _ret {
             if val, ok := m["templateid"]; ok {
@@ -399,27 +400,35 @@ func SortTemplateDepend(aZAPI *ZabbixAPI) ([]string, error) {
         }
     }
 
-    for oT, oTL := range oldDM {
-        minI := -1
-        nowI := -1
+    res2 := make([]string, 0)
+    for _, oTL := range oldDM {
         for _, oTV := range oTL {
-            for idx, val := range res {
-                if val == oTV {
-                    if idx > minI {
-                        minI = idx
-                    }
-                }
-                if val == oT {
-                    nowI = idx
-                }
+            if !itemFind(res2, oTV) {
+                res2 = append(res2, oTV)
             }
         }
-        if minI > -1 && nowI > -1 {
-            res[minI+1], res[nowI] = oT, res[minI+1]
+    }
+    for oT, _ := range oldDM {
+        if !itemFind(res2, oT) {
+            res2 = append(res2, oT)
+        }
+    }
+    for _, val := range res {
+        if !itemFind(res2, val) {
+            res2 = append(res2, val)
         }
     }
 
-    return res, nil
+    res3 := make([]int, len(res2))
+    for idx, val := range res2 {
+        v, err := strconv.Atoi(val)
+        if err != nil {
+            return []int{}, err
+        }
+        res3[idx] = v
+    }
+
+    return res3, nil
 }
 
 func DevideDSlice(aSlice, bSlice []string) []string {
@@ -482,14 +491,14 @@ func CleanNewTemplate(bZAPI *ZabbixAPI, bZDB *ZabbixDB) error {
     return nil
 }
 
-func CreateNewTemplate(aZAPI *ZabbixAPI, bZAPI *ZabbixAPI) error {
+func CreateNewTemplate(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI) error {
     log.WithFields(log.Fields{
         "func": "CreateNewTemplate",
         "step": "start",
     }).Debug("start create new template on new zabbix")
 
-    aTemplateList, err := aZDB.GetTemplateList()
-    // aTemplateList, err := SortTemplateDepend(aZAPI)
+    // aTemplateList, err := aZDB.GetTemplateList()
+    aTemplateList, err := SortTemplateDepend(aZAPI)
     if err != nil {
         return err
     }
@@ -497,7 +506,7 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, bZAPI *ZabbixAPI) error {
         return nil
     }
 
-    step := 1000
+    step := 10
     stepN := int(len(aTemplateList)/step)
     for i:=0; i<=stepN; i++ {
         var tTemplateList []int
@@ -517,7 +526,7 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, bZAPI *ZabbixAPI) error {
                 log.WithFields(log.Fields{
                     "func": "CreateNewTemplate",
                     "step": "export",
-                }).Errorf("try to export first template [%s] is failed", tTemplateList[0])
+                }).Errorf("try to export first template [%d] is failed", tTemplateList[0])
             }
             return err
         }
@@ -602,7 +611,7 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, bZAPI *ZabbixAPI) error {
                 log.WithFields(log.Fields{
                     "func": "CreateNewTemplate",
                     "step": "import",
-                }).Errorf("try to import first template [%s] is failed", tTemplateList[0])
+                }).Errorf("try to import first template [%d] is failed", tTemplateList[0])
             }
             return err
         }
@@ -611,7 +620,7 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, bZAPI *ZabbixAPI) error {
                 log.WithFields(log.Fields{
                     "func": "CreateNewTemplate",
                     "step": "import",
-                }).Errorf("try to import first template [%s] is failed", tTemplateList[0])
+                }).Errorf("try to import first template [%d] is failed", tTemplateList[0])
             }
             return errors.New("result of import template task is false")
         }
@@ -631,7 +640,7 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, bZAPI *ZabbixAPI) error {
     return nil
 }
 
-func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup string, hostIdBegin int) error {
+func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup string, hostIdBegin int, offset uint) error {
     log.WithFields(log.Fields{
         "func": "CreateNewHost",
         "step": "start",
@@ -645,7 +654,7 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
         return nil
     }
 
-    step := 100
+    step := int(offset)
     stepN := int(len(aHostList)/step)
     for i:=0; i<=stepN; i++ {
         var tHostList []int
@@ -687,7 +696,7 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
             log.WithFields(log.Fields{
                 "func": "CreateNewHost",
                 "step": "export",
-            }).Errorf("done export first host [%d] - [%d]", tHostList[0], tHostList[len(tHostList)-1])
+            }).Infof("done export first host [%d] - [%d]", tHostList[0], tHostList[len(tHostList)-1])
         }
 
         bParams := make(map[string]interface{}, 0)
