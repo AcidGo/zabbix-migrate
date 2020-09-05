@@ -93,7 +93,7 @@ func (db *ZabbixDB) GetHostList(hostgroup string, hostIdBegin int) ([]int, error
     var rows *sql.Rows
     var err error
     if hostgroup == "" {
-        rows, err = db.DB.Query("select hostid from hosts where status != 3 and hostid > ? order by hostid", hostIdBegin)
+        rows, err = db.DB.Query("select hostid from hosts where status != 3 and hostid >= ? order by hostid", hostIdBegin)
     } else {
         rows, err = db.DB.Query(
             `select hg.hostid from hosts_groups hg left join hosts h on hg.hostid = h.hostid where h.status = 0 and hg.groupid in (select groupid  from hstgrp g where g.name = ?) order by hg.hostid`, 
@@ -114,15 +114,19 @@ func (db *ZabbixDB) GetHostList(hostgroup string, hostIdBegin int) ([]int, error
     return res, nil
 }
 
-func (db *ZabbixDB) GetHostMapList(hostgroup string, hostIdBegin int) ([]HostMap, error) {
+func (db *ZabbixDB) GetHostMapList(hostgroup string, hostIdBegin int, offset uint) ([]HostMap, error) {
     var rows *sql.Rows
     var err error
+    if offset == 0 {
+        offset = 999999999
+    }
     if hostgroup == "" {
-        rows, err = db.DB.Query("select hostid, host from hosts where status = 0 and hostid > ? order by hostid", hostIdBegin)
+        rows, err = db.DB.Query("select hostid, host from hosts where status = 0 and hostid >= ? order by hostid limit 0 offset ?", hostIdBegin, offset)
     } else {
-        rows, err = db.DB.Query(`select hg.hostid, h.host from hosts_groups hg left join hosts h on hg.hostid = h.hostid where h.hostid > ? and h.status != 3 and hg.groupid in (select groupid  from hstgrp g where g.name = ?) order by hg.hostid`, 
+        rows, err = db.DB.Query(`select hg.hostid, h.host from hosts_groups hg left join hosts h on hg.hostid = h.hostid where h.hostid >= ? and h.status != 3 and hg.groupid in (select groupid  from hstgrp g where g.name = ?) order by hg.hostid limit 0 offset ?`, 
             hostIdBegin,
             hostgroup,
+            offset,
         )
     }
     if err != nil {

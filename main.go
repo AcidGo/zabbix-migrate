@@ -81,7 +81,7 @@ var (
 
     fHostGroup      string
     fHostIdBegin    int
-    fIdOffset         uint
+    fIdOffset       uint
 
     fLogLevel       uint
 )
@@ -189,9 +189,7 @@ func flagUsage() {
   GitCommit: %s
   BuildTime: %s
   GoVersion: %s
-Usage:
-  %s [-h] [-f <configPath>] [-m <migrateType>] [-c <checkType>] [-s <syncType>] [-g <hostGroup>] [-i <hostIdBegin]>
-Options:`, appName, appVersion, appAuthor, appGitCommitHash, appBuildTime, appGoVersion, appName)
+Options:`, appName, appVersion, appAuthor, appGitCommitHash, appBuildTime, appGoVersion)
     fmt.Fprintf(os.Stderr, "\n")
     flag.PrintDefaults()
 }
@@ -384,7 +382,7 @@ func main() {
     if syncType != "" {
         switch syncType {
         case "trends":
-            err = SyncTrends(aZDB, bZDB, fHostGroup, fHostIdBegin)
+            err = SyncTrends(aZDB, bZDB, fHostGroup, fHostIdBegin, fIdOffset)
             if err != nil {
                 log.WithFields(log.Fields{
                     "func": "main",
@@ -392,7 +390,7 @@ func main() {
                 }).Errorf("sync for trneds is error: %s", err)
             }
         case "history":
-            err = SyncHistory(aZDB, bZDB, fHostGroup, fHostIdBegin)
+            err = SyncHistory(aZDB, bZDB, fHostGroup, fHostIdBegin, fIdOffset)
             if err != nil {
                 log.WithFields(log.Fields{
                     "func": "main",

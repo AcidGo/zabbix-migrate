@@ -803,13 +803,13 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
     return nil
 }
 
-func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int) error {
+func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int, offset uint) error {
     log.WithFields(log.Fields{
         "func": "SyncHistory",
         "step": "start",
     }).Debug("start sync old history to new zabbix")
 
-    hMapList, err := aZDB.GetHostMapList(hostgroup, hostIdBegin)
+    hMapList, err := aZDB.GetHostMapList(hostgroup, hostIdBegin, offset)
     if err != nil {
         return err
     }
@@ -835,13 +835,13 @@ func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin i
     return nil
 }
 
-func SyncTrends(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int) error {
+func SyncTrends(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int, offset uint) error {
     log.WithFields(log.Fields{
         "func": "SyncTrends",
         "step": "start",
     }).Debug("start sync old trends to new zabbix")
 
-    hMapList, err := aZDB.GetHostMapList(hostgroup, hostIdBegin)
+    hMapList, err := aZDB.GetHostMapList(hostgroup, hostIdBegin, offset)
     if err != nil {
         return err
     }
