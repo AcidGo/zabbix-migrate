@@ -640,7 +640,7 @@ func CreateNewTemplate(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI) error
     return nil
 }
 
-func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup string, hostIdBegin int, offset uint) error {
+func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup string, hostIdBegin int, offset uint, ignoreErr bool) error {
     log.WithFields(log.Fields{
         "func": "CreateNewHost",
         "step": "start",
@@ -688,6 +688,13 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
                     "func": "CreateNewHost",
                     "step": "export",
                 }).Error("UNKNOWN")
+            }
+            if ignoreErr {
+                log.WithFields(log.Fields{
+                    "func": "CreateNewHost",
+                    "step": "export",
+                }).Info("choose to ignore the error, continue ...")
+                continue
             }
             return err
         }
@@ -774,19 +781,47 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
                 "func": "CreateNewHost",
                 "step": "import",
             }).Errorf("try to import first host [%d] is failed", tHostList[0])
+
+            if ignoreErr {
+                log.WithFields(log.Fields{
+                    "func": "CreateNewHost",
+                    "step": "import",
+                }).Info("choose to ignore the error, continue ...")
+                continue
+            }
+
             return err
         }
+
         if _res, ok := res.(bool); ok && !_res {
             log.WithFields(log.Fields{
                 "func": "CreateNewHost",
                 "step": "import",
             }).Errorf("try to import first host [%d] is failed", tHostList[0])
+
+            if ignoreErr {
+                log.WithFields(log.Fields{
+                    "func": "CreateNewHost",
+                    "step": "import",
+                }).Info("choose to ignore the error, continue ...")
+                continue
+            }
+
             return errors.New("result of import host task is false")
         } else if !ok {
             log.WithFields(log.Fields{
                 "func": "CreateNewHost",
                 "step": "import",
             }).Errorf("try to import first host [%d] is failed", tHostList[0])
+
+            if ignoreErr {
+                log.WithFields(log.Fields{
+                    "func": "CreateNewHost",
+                    "step": "import",
+                }).Info("choose to ignore the error, continue ...")
+                continue
+            }
+
             if s, _ok := res.(string); _ok {
                 return errors.New(s)
             } else {

@@ -83,6 +83,8 @@ var (
     fHostIdBegin    int
     fIdOffset       uint
 
+    fIgnore         bool
+
     fLogLevel       uint
 )
 
@@ -151,6 +153,8 @@ func initFlag() error {
     flag.StringVar(&fHostGroup, "g", "", "input params about hostgroup")
     flag.IntVar(&fHostIdBegin, "i", 0, "input params about host begin id")
     flag.UintVar(&fIdOffset, "o", 50, "input params about id offset")
+
+    flag.BoolVar(&fIgnore, "ignore", false, "ignore migrate errors")
 
     flag.UintVar(&fLogLevel, "l", 4, "set log level number, 0 is panic ... 6 is trace")
 
@@ -276,7 +280,7 @@ func main() {
             }
             err = CreateNewTemplate(aZAPI, aZDB, bZAPI)
         case "host":
-            err = CreateNewHost(aZAPI, aZDB, bZAPI, fHostGroup, fHostIdBegin, fIdOffset)
+            err = CreateNewHost(aZAPI, aZDB, bZAPI, fHostGroup, fHostIdBegin, fIdOffset, fIgnore)
         }
         if err != nil {
             log.WithFields(log.Fields{
