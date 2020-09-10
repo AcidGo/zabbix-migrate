@@ -69,24 +69,24 @@ func TestCleanNewTemplate(t *testing.T) {
 //     }
 // }
 
-func TestCreateNewHost(t *testing.T) {
-    zapiA, _ := GetAPIA()
-    zapiB, _ := GetAPIB()
-    zdbA, _ := GetDBConnectA()
+// func TestCreateNewHost(t *testing.T) {
+//     zapiA, _ := GetAPIA()
+//     zapiB, _ := GetAPIB()
+//     zdbA, _ := GetDBConnectA()
 
-    err := CreateNewHost(zapiA, zdbA, zapiB, "", 0)
-    if err != nil {
-        log.Println(err)
-    }
-}
+//     err := CreateNewHost(zapiA, zdbA, zapiB, "", 0)
+//     if err != nil {
+//         log.Println(err)
+//     }
+// }
 
-func TestGetHostMapList(t *testing.T) {
-    zdbA, _ := GetDBConnectA()
+// func TestGetHostMapList(t *testing.T) {
+//     zdbA, _ := GetDBConnectA()
 
-    res, err := zdbA.GetHostMapList("Linux servers", 0)
-    log.Println(res)
-    log.Println(err)
-}
+//     res, err := zdbA.GetHostMapList("Linux servers", 0)
+//     log.Println(res)
+//     log.Println(err)
+// }
 
 func TestGetItemList(t *testing.T) {
     zdbA, _ := GetDBConnectA()
@@ -120,20 +120,20 @@ func TestSyncTrendsToOne(t *testing.T) {
     log.Println(err)
 }
 
-func TestSyncHistory(t *testing.T) {
-    zdbA, _ := GetDBConnectA()
-    zbxB, _ := GetDBConnectB()
+// func TestSyncHistory(t *testing.T) {
+//     zdbA, _ := GetDBConnectA()
+//     zbxB, _ := GetDBConnectB()
 
-    SyncHistory(zdbA, zbxB, "Linux servers", 0)
-}
+//     SyncHistory(zdbA, zbxB, "Linux servers", 0)
+// }
 
-func TestSyncTrends(t *testing.T) {
-    zdbA, _ := GetDBConnectA()
-    zbxB, _ := GetDBConnectB()
+// func TestSyncTrends(t *testing.T) {
+//     zdbA, _ := GetDBConnectA()
+//     zbxB, _ := GetDBConnectB()
 
-    err := SyncTrends(zdbA, zbxB, "Linux servers", 0)
-    log.Println(err)
-}
+//     err := SyncTrends(zdbA, zbxB, "Linux servers", 0)
+//     log.Println(err)
+// }
 
 func TestDiffUnitList(t *testing.T) {
     m := []ZUnitMap {
@@ -166,4 +166,10 @@ func TestSortTemplateDepend(t *testing.T) {
     res, err := SortTemplateDepend(zapiA)
     log.Println(err)
     log.Println(res)
+}
+
+func TestCheckHost(t *testing.T) {
+    zapiA, err := GetAPIA()
+    _, err = CheckHost(zapiA, zapiA, "Linux servers")
+    log.Println(err)
 }

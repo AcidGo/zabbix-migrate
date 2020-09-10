@@ -935,25 +935,45 @@ func CheckHostGroup(aZAPI, bZAPI *ZabbixAPI) (bool, error) {
 func CheckHost(aZAPI, bZAPI *ZabbixAPI, hostgroup string) (bool, error) {
     aParams := make(map[string]interface{}, 0)
     aFilter := make(map[string]interface{}, 0)
-    aParams["output"] = []string{"host"}
-    aParams["selectGroups"] = hostgroup
+    if hostgroup != "" {
+        aFilter["name"] = hostgroup
+    }
+    aParams["output"] = []string{"hosts"}
+    aParams["selectHosts"] = []string{"name"}
     aParams["filter"] = aFilter
-    aZHostList, err := aZAPI.Host("get", aParams)
+    aZGroupHostList, err := aZAPI.HostGroup("get", aParams)
     if err != nil {
         return false, err
     }
 
     bParams := make(map[string]interface{}, 0)
     bFilter := make(map[string]interface{}, 0)
-    bParams["output"] = []string{"host"}
-    bParams["selectGroups"] = hostgroup
+    if hostgroup != "" {
+        bFilter["name"] = hostgroup
+    }
+    bParams["output"] = []string{"hosts"}
+    bParams["selectHosts"] = []string{"name"}
     bParams["filter"] = bFilter
-    bZHostList, err := bZAPI.Host("get", bParams)
+    bZGroupHostList, err := bZAPI.HostGroup("get", bParams)
     if err != nil {
         return false, err
     }
 
-    mFilter := []string {"groups", "hostid"}
+    aZHostListI := aZGroupHostList[0]["hosts"]
+    bZHostListI := bZGroupHostList[0]["hosts"]
+
+    aZHostListJson, err := json.Marshal(aZHostListI)
+    bZHostListJson, err := json.Marshal(bZHostListI)
+
+    var aZHostList []ZUnitMap
+    err = json.Unmarshal(aZHostListJson, &aZHostList)
+    var bZHostList []ZUnitMap
+    err = json.Unmarshal(bZHostListJson, &bZHostList)
+    if err != nil {
+        return false, err
+    }
+
+    mFilter := []string {"hostid"}
     FilterZUM(aZHostList, mFilter)
     FilterZUM(bZHostList, mFilter)
     isSame, err := DiffUnitList(aZHostList, bZHostList, true)
