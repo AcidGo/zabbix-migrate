@@ -96,7 +96,8 @@ func (db *ZabbixDB) GetHostList(hostgroup string, hostIdBegin int) ([]int, error
         rows, err = db.DB.Query("select hostid from hosts where status != 3 and hostid >= ? order by hostid", hostIdBegin)
     } else {
         rows, err = db.DB.Query(
-            `select hg.hostid from hosts_groups hg left join hosts h on hg.hostid = h.hostid where h.status = 0 and hg.groupid in (select groupid  from hstgrp g where g.name = ?) order by hg.hostid`, 
+            `select hg.hostid from hosts_groups hg left join hosts h on hg.hostid = h.hostid where h.status = 0 and hostid >= ? and hg.groupid in (select groupid from hstgrp g where g.name = ?) order by hg.hostid`, 
+            hostIdBegin,
             hostgroup,
         )
     }
