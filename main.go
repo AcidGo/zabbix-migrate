@@ -82,6 +82,7 @@ var (
     fHostGroup      string
     fHostIdBegin    int
     fIdOffset       uint
+    fDayOffset      uint
 
     fIgnore         bool
 
@@ -153,6 +154,7 @@ func initFlag() error {
     flag.StringVar(&fHostGroup, "g", "", "input params about hostgroup")
     flag.IntVar(&fHostIdBegin, "i", 0, "input params about host begin id")
     flag.UintVar(&fIdOffset, "o", 50, "input params about id offset")
+    flag.UintVar(&fDayOffset, "d", 1, "input params about day offset")
 
     flag.BoolVar(&fIgnore, "ignore", false, "ignore migrate errors")
 
@@ -394,7 +396,7 @@ func main() {
                 }).Errorf("sync for trneds is error: %s", err)
             }
         case "history":
-            err = SyncHistory(aZDB, bZDB, fHostGroup, fHostIdBegin, fIdOffset)
+            err = SyncHistory(aZDB, bZDB, fHostGroup, fHostIdBegin, fIdOffset, fDayOffset)
             if err != nil {
                 log.WithFields(log.Fields{
                     "func": "main",

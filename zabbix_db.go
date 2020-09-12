@@ -122,7 +122,7 @@ func (db *ZabbixDB) GetHostMapList(hostgroup string, hostIdBegin int, offset uin
         offset = 999999999
     }
     if hostgroup == "" {
-        rows, err = db.DB.Query("select hostid, host from hosts where status = 0 and hostid >= ? order by hostid limit ?", hostIdBegin, offset)
+        rows, err = db.DB.Query("select hostid, host from hosts where status = 0 and hostid >= ? and h.status != 3 order by hostid limit ?", hostIdBegin, offset)
     } else {
         rows, err = db.DB.Query(`select hg.hostid, h.host from hosts_groups hg left join hosts h on hg.hostid = h.hostid where h.hostid >= ? and h.status != 3 and hg.groupid in (select groupid  from hstgrp g where g.name = ?) order by hg.hostid limit ?`, 
             hostIdBegin,
@@ -146,7 +146,7 @@ func (db *ZabbixDB) GetHostMapList(hostgroup string, hostIdBegin int, offset uin
 }
 
 func (db *ZabbixDB) GetItemList(hostid int) ([]int, error) {
-    rows, err := db.DB.Query("select itemid from items where hostid = ? order by itemid", hostid)
+    rows, err := db.DB.Query("select itemid from items where flags not in (1,2) and hostid = ? order by itemid", hostid)
     if err != nil {
         return []int{}, err
     }
@@ -162,7 +162,7 @@ func (db *ZabbixDB) GetItemList(hostid int) ([]int, error) {
 }
 
 func (db *ZabbixDB) GetItemMap(hostid int) (ItemMap, error) {
-    rows, err := db.DB.Query("select itemid, key_ from items where flags = 0 and hostid = ? order by itemid", hostid)
+    rows, err := db.DB.Query("select itemid, key_ from items where flags not in (1,2) and hostid = ? order by itemid", hostid)
     if err != nil {
         return ItemMap{}, err
     }
@@ -182,24 +182,29 @@ func (db *ZabbixDB) MappingItemId(host string, iMap ItemMap) (map[int]int, error
     res := make(map[int]int)
     for itemid, key_ := range iMap {
         var row *sql.Row
+        sql_ := fmt.Sprintf("select i.itemid from items i left join hosts h on i.hostid = h.hostid where i.flags not in (1,2) and h.host = '%s' and i.key_ = '%s'", host, key_)
         switch db.DBDriver {
         case "mysql":
-            row = db.DB.QueryRow("select i.itemid from items i left join hosts h on i.hostid = h.hostid where h.host = ? and i.key_ = ?", host, key_)
+            row = db.DB.QueryRow(sql_)
         case "postgres":
-            row = db.DB.QueryRow("select i.itemid from items i left join hosts h on i.hostid = h.hostid where h.host = $1 and i.key_ = $2", host, key_)
+            row = db.DB.QueryRow(sql_)
         }
-        
+
         var _itemid int
         err := row.Scan(&_itemid)
         if err != nil {
-            return map[int]int{}, err
+            switch {
+            case err == sql.ErrNoRows:
+            case err != nil:
+                return map[int]int{}, err
+            }
         }
         res[itemid] = _itemid
     }
     return res, nil
 }
 
-func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, host string) error {
+func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, host string, offsetDay uint) error {
     var err error
     var value string
 
@@ -215,14 +220,10 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
     }
     mappingI, err := bZDB.MappingItemId(aHost, aItemMap)
     if err != nil {
-        switch {
-        case err == sql.ErrNoRows:
-        case err != nil:
-            return err
-        }
+        return err
     }
 
-    endClock := time.Now().Unix() - 3600
+    endClock := time.Now().Unix() - 3600*24*int64(offsetDay)
     limitOffset := 1000
 
     if hTable != "history_log" {
@@ -236,6 +237,19 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
         }
 
         for _, itemid := range aItemList {
+            log.WithFields(log.Fields{
+                "func": "ZabbixDB.SyncHistoryToOne",
+                "step": "insert",
+            }).Tracef("prepare sql hostid [%d] itemid [%d] mapItemid [%d]", aHostid, itemid, mappingI[itemid])
+
+            if _, ok := mappingI[itemid]; !ok {
+                log.WithFields(log.Fields{
+                    "func": "ZabbixDB.SyncHistoryToOne",
+                    "step": "insert",
+                }).Errorf("not found itemid mapping for itemid [%d]", itemid)
+                continue
+            }
+
             limitStart := 0
             for {
                 log.WithFields(log.Fields{
@@ -249,12 +263,13 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
                     limitOffset,
                 )
 
-                aRows, err := db.DB.Query(sql1, itemid, endClock, limitStart, limitOffset)
+                aRows, err := db.DB.Query(sql1, itemid, endClock, limitOffset, limitStart)
                 if err != nil {
                     return err
                 }
 
                 isEmpty := true
+                iCount := 0
                 for aRows.Next() {
                     isEmpty = false
                     var _itemid int
@@ -272,7 +287,13 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
                         }).Errorf("try to sync hostid [%d] itemid [%d] is failed", aHostid, itemid)
                         break
                     }
+                    iCount++
                 }
+
+                log.WithFields(log.Fields{
+                    "func": "ZabbixDB.SyncHistoryToOne",
+                    "step": "insert",
+                }).Tracef("done sync %s hostid [%d] itemid [%d] mapItemid [%d], insert count is %d", hTable, aHostid, itemid, mappingI[itemid], iCount)
 
                 aRows.Close()
                 if err != nil {
@@ -295,6 +316,19 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
         }
 
         for _, itemid := range aItemList {
+            log.WithFields(log.Fields{
+                "func": "ZabbixDB.SyncHistoryToOne",
+                "step": "insert",
+            }).Tracef("prepare sql hostid [%d] itemid [%d] mapItemid [%d]", aHostid, itemid, mappingI[itemid])
+
+            if _, ok := mappingI[itemid]; !ok {
+                log.WithFields(log.Fields{
+                    "func": "ZabbixDB.SyncHistoryToOne",
+                    "step": "insert",
+                }).Errorf("not found itemid mapping for itemid [%d]", itemid)
+                continue
+            }
+
             limitStart := 0
             for {
                 log.WithFields(log.Fields{
@@ -308,12 +342,13 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
                     limitOffset,
                 )
 
-                aRows, err := db.DB.Query(sql1, itemid, endClock, limitStart, limitOffset)
+                aRows, err := db.DB.Query(sql1, itemid, endClock, limitOffset, limitStart)
                 if err != nil {
                     return err
                 }
 
                 isEmpty := true
+                iCount := 0
                 for aRows.Next() {
                     isEmpty = false
                     var _itemid int
@@ -335,7 +370,13 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
                         }).Errorf("try to sync %s hostid [%d] itemid [%d] is failed", hTable, aHostid, itemid)
                         break
                     }
+                    iCount++
                 }
+
+                log.WithFields(log.Fields{
+                    "func": "ZabbixDB.SyncHistoryToOne",
+                    "step": "insert",
+                }).Tracef("done sync %s hostid [%d] itemid [%d] mapItemid [%d], insert count is %d", hTable, aHostid, itemid, mappingI[itemid], iCount)
 
                 aRows.Close()
                 if err != nil {
@@ -366,13 +407,10 @@ func (db *ZabbixDB) SyncTrendsToOne(bZDB *ZabbixDB, tTable string, hostid int, h
     if err != nil {
         return err
     }
+
     mappingI, err := bZDB.MappingItemId(aHost, aItemMap)
     if err != nil {
-        switch {
-        case err == sql.ErrNoRows:
-        case err != nil:
-            return err
-        }
+        return err
     }
 
     sql1 := fmt.Sprintf("select * from %s where itemid = ?", tTable)
@@ -396,12 +434,26 @@ func (db *ZabbixDB) SyncTrendsToOne(bZDB *ZabbixDB, tTable string, hostid int, h
     }
 
     for _, itemid := range aItemList {
+        log.WithFields(log.Fields{
+            "func": "ZabbixDB.SyncTrendsToOne",
+            "step": "insert",
+        }).Tracef("prepare sql [%s] hostid [%d] itemid [%d] mapItemid [%d]", sql1, aHostid, itemid, mappingI[itemid])
+
+        if _, ok := mappingI[itemid]; !ok {
+            log.WithFields(log.Fields{
+                "func": "ZabbixDB.SyncTrendsToOne",
+                "step": "insert",
+            }).Errorf("not found itemid mapping for itemid [%d]", itemid)
+            continue
+        }
+
         aRows, err := db.DB.Query(sql1, itemid)
         if err != nil {
             return err
         }
         defer aRows.Close()
 
+        iCount := 0
         for aRows.Next() {
             var _itemid int
             var _clock int
@@ -419,10 +471,17 @@ func (db *ZabbixDB) SyncTrendsToOne(bZDB *ZabbixDB, tTable string, hostid int, h
                 log.WithFields(log.Fields{
                     "func": "ZabbixDB.SyncTrendsToOne",
                     "step": "insert",
-                }).Errorf("try to sync %s hostid [%d] itemid [%d] is failed", tTable, aHostid, itemid)
+                }).Errorf("try to sync %s hostid [%d] itemid [%d] mapItemid [%d] is failed", tTable, aHostid, itemid, mappingI[itemid])
                 return err
             }
+            iCount++
         }
+
+        log.WithFields(log.Fields{
+            "func": "ZabbixDB.SyncTrendsToOne",
+            "step": "insert",
+        }).Tracef("done sync %s hostid [%d] itemid [%d] mapItemid [%d], insert count is %d", tTable, aHostid, itemid, mappingI[itemid], iCount)
+
     }
     return nil
 }

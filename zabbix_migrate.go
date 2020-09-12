@@ -834,29 +834,29 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
     log.WithFields(log.Fields{
         "func": "CreateNewHost",
         "step": "finish",
-    }).Debug("start create new host on new zabbix")
+    }).Debug("finish create new host on new zabbix")
     return nil
 }
 
-func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int, offset uint) error {
+func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int, idOffset uint, dayOffset uint) error {
     log.WithFields(log.Fields{
         "func": "SyncHistory",
         "step": "start",
     }).Debug("start sync old history to new zabbix")
 
-    hMapList, err := aZDB.GetHostMapList(hostgroup, hostIdBegin, offset)
+    hMapList, err := aZDB.GetHostMapList(hostgroup, hostIdBegin, idOffset)
     if err != nil {
         return err
     }
     for _, hMap := range hMapList {
         for _, hTable := range HistoryTables {
             for hostid, host := range hMap {
-                err := aZDB.SyncHistoryToOne(bZDB, hTable, hostid, host)
+                err := aZDB.SyncHistoryToOne(bZDB, hTable, hostid, host, dayOffset)
                 if err != nil {
                     return err
                 }
                 log.WithFields(log.Fields{
-                    "func": "CreateNewHost",
+                    "func": "SyncHistory",
                     "step": "sync.done",
                 }).Debugf("done sync history table [%s]: host [%s] hostid [%d]", hTable, host, hostid)
             }
@@ -866,7 +866,7 @@ func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin i
     log.WithFields(log.Fields{
         "func": "SyncHistory",
         "step": "finish",
-    }).Debug("start sync old history to new zabbix")
+    }).Debug("finish sync old history to new zabbix")
     return nil
 }
 
