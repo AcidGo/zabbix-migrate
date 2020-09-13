@@ -838,7 +838,7 @@ func CreateNewHost(aZAPI *ZabbixAPI, aZDB *ZabbixDB, bZAPI *ZabbixAPI, hostgroup
     return nil
 }
 
-func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int, idOffset uint, dayOffset uint) error {
+func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hTableInput string, hostIdBegin int, idOffset uint, dayOffset uint, ignoreErr bool) error {
     log.WithFields(log.Fields{
         "func": "SyncHistory",
         "step": "start",
@@ -850,8 +850,11 @@ func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin i
     }
     for _, hMap := range hMapList {
         for _, hTable := range HistoryTables {
+            if hTableInput != "" && hTableInput != hTable {
+                continue
+            }
             for hostid, host := range hMap {
-                err := aZDB.SyncHistoryToOne(bZDB, hTable, hostid, host, dayOffset)
+                err := aZDB.SyncHistoryToOne(bZDB, hTable, hostid, host, dayOffset, ignoreErr)
                 if err != nil {
                     return err
                 }
@@ -870,7 +873,7 @@ func SyncHistory(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin i
     return nil
 }
 
-func SyncTrends(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int, offset uint) error {
+func SyncTrends(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin int, offset uint, ignoreErr bool) error {
     log.WithFields(log.Fields{
         "func": "SyncTrends",
         "step": "start",
@@ -883,7 +886,7 @@ func SyncTrends(aZDB *ZabbixDB, bZDB *ZabbixDB, hostgroup string, hostIdBegin in
     for _, hMap := range hMapList {
         for _, sTable := range TrendsTables {
             for hostid, host := range hMap {
-                err := aZDB.SyncTrendsToOne(bZDB, sTable, hostid, host)
+                err := aZDB.SyncTrendsToOne(bZDB, sTable, hostid, host, ignoreErr)
                 if err != nil {
                     return err
                 }

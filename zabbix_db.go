@@ -204,7 +204,7 @@ func (db *ZabbixDB) MappingItemId(host string, iMap ItemMap) (map[int]int, error
     return res, nil
 }
 
-func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, host string, offsetDay uint) error {
+func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, host string, offsetDay uint, ignoreErr bool) error {
     var err error
     var value string
 
@@ -242,7 +242,7 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
                 "step": "insert",
             }).Tracef("prepare sql hostid [%d] itemid [%d] mapItemid [%d]", aHostid, itemid, mappingI[itemid])
 
-            if _, ok := mappingI[itemid]; !ok {
+            if val, ok := mappingI[itemid]; !ok || val == 0 {
                 log.WithFields(log.Fields{
                     "func": "ZabbixDB.SyncHistoryToOne",
                     "step": "insert",
@@ -321,7 +321,7 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
                 "step": "insert",
             }).Tracef("prepare sql hostid [%d] itemid [%d] mapItemid [%d]", aHostid, itemid, mappingI[itemid])
 
-            if _, ok := mappingI[itemid]; !ok {
+            if val, ok := mappingI[itemid]; !ok || val == 0 {
                 log.WithFields(log.Fields{
                     "func": "ZabbixDB.SyncHistoryToOne",
                     "step": "insert",
@@ -394,7 +394,7 @@ func (db *ZabbixDB) SyncHistoryToOne(bZDB *ZabbixDB, hTable string, hostid int, 
     return nil
 }
 
-func (db *ZabbixDB) SyncTrendsToOne(bZDB *ZabbixDB, tTable string, hostid int, host string) error {
+func (db *ZabbixDB) SyncTrendsToOne(bZDB *ZabbixDB, tTable string, hostid int, host string, ignoreErr bool) error {
     var err error
 
     aHostid := hostid
@@ -439,7 +439,7 @@ func (db *ZabbixDB) SyncTrendsToOne(bZDB *ZabbixDB, tTable string, hostid int, h
             "step": "insert",
         }).Tracef("prepare sql [%s] hostid [%d] itemid [%d] mapItemid [%d]", sql1, aHostid, itemid, mappingI[itemid])
 
-        if _, ok := mappingI[itemid]; !ok {
+        if val, ok := mappingI[itemid]; !ok || val == 0 {
             log.WithFields(log.Fields{
                 "func": "ZabbixDB.SyncTrendsToOne",
                 "step": "insert",
@@ -449,6 +449,17 @@ func (db *ZabbixDB) SyncTrendsToOne(bZDB *ZabbixDB, tTable string, hostid int, h
 
         aRows, err := db.DB.Query(sql1, itemid)
         if err != nil {
+            if ignoreErr {
+                log.WithFields(log.Fields{
+                    "func": "ZabbixDB.SyncTrendsToOne",
+                    "step": "insert",
+                }).Error(err)
+                log.WithFields(log.Fields{
+                    "func": "ZabbixDB.SyncTrendsToOne",
+                    "step": "insert",
+                }).Info("ignore error ...")
+                continue
+            }
             return err
         }
         defer aRows.Close()
@@ -472,6 +483,13 @@ func (db *ZabbixDB) SyncTrendsToOne(bZDB *ZabbixDB, tTable string, hostid int, h
                     "func": "ZabbixDB.SyncTrendsToOne",
                     "step": "insert",
                 }).Errorf("try to sync %s hostid [%d] itemid [%d] mapItemid [%d] is failed", tTable, aHostid, itemid, mappingI[itemid])
+                if ignoreErr {
+                    log.WithFields(log.Fields{
+                        "func": "ZabbixDB.SyncTrendsToOne",
+                        "step": "insert",
+                    }).Info("ignore error ...")
+                    break
+                }
                 return err
             }
             iCount++

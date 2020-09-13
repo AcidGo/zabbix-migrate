@@ -79,6 +79,8 @@ var (
     checkType       string
     syncType        string
 
+    fHTable         string
+
     fHostGroup      string
     fHostIdBegin    int
     fIdOffset       uint
@@ -150,6 +152,7 @@ func initFlag() error {
     flag.StringVar(&migrateType, "m", "", "select the type of migrate, support for hostgroup|valuemap|template|host")
     flag.StringVar(&checkType, "c", "", "select the type of check, support for hostgroup|host|item|trigger|valuemap|map|all")
     flag.StringVar(&syncType, "s", "", "select the type of sync, support for trends|history")
+    flag.StringVar(&fHTable, "htable", "", "select the name of history table for sync")
 
     flag.StringVar(&fHostGroup, "g", "", "input params about hostgroup")
     flag.IntVar(&fHostIdBegin, "i", 0, "input params about host begin id")
@@ -388,7 +391,7 @@ func main() {
     if syncType != "" {
         switch syncType {
         case "trends":
-            err = SyncTrends(aZDB, bZDB, fHostGroup, fHostIdBegin, fIdOffset)
+            err = SyncTrends(aZDB, bZDB, fHostGroup, fHostIdBegin, fIdOffset, fIgnore)
             if err != nil {
                 log.WithFields(log.Fields{
                     "func": "main",
@@ -396,7 +399,7 @@ func main() {
                 }).Errorf("sync for trneds is error: %s", err)
             }
         case "history":
-            err = SyncHistory(aZDB, bZDB, fHostGroup, fHostIdBegin, fIdOffset, fDayOffset)
+            err = SyncHistory(aZDB, bZDB, fHostGroup, fHTable, fHostIdBegin, fIdOffset, fDayOffset, fIgnore)
             if err != nil {
                 log.WithFields(log.Fields{
                     "func": "main",
